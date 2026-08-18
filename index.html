@@ -870,6 +870,14 @@
         <h3>🏆 中奖记录</h3>
         <div class="winner-list" id="winnerList"></div>
       </div>
+      <div class="panel-card" style="display:flex; flex-direction:column; max-height:280px;">
+        <h3>💬 聊天室</h3>
+        <div id="chatMessages" style="flex:1; overflow-y:auto; font-size:13px; margin-bottom:10px; max-height:160px; line-height:1.5;"></div>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="chatInput" placeholder="说点什么..." maxlength="80" style="flex:1; padding:8px 10px; border-radius:8px; border:1px solid rgba(168,213,255,0.3); background:rgba(10,31,68,0.5); color:#fff; font-size:13px; outline:none;">
+          <button class="btn btn-primary btn-sm" style="padding:8px 14px;" onclick="sendChat()">发送</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1131,6 +1139,14 @@ function initFirebase() {
       }
       updateSpinButton();
       updateEntryUI();
+    });
+
+    // 聊天消息（最多保留最近 50 条）
+    db.ref('chat').limitToLast(50).on('value', (snap) => {
+      const val = snap.val();
+      const msgs = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+      msgs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      renderChat(msgs);
     });
 
   } catch (err) {
@@ -1434,8 +1450,17 @@ function showResult(prize) {
 }
 
 function closeResultModal() {
-  document.getElementById('resultModal').classList.remove('show');
+  const modal = document.getElementById('resultModal');
+  if (modal) {
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    // 强制下一帧恢复，避免部分手机浏览器卡住
+    setTimeout(() => {
+      modal.style.display = '';
+    }, 50);
+  }
   renderSidePanel();
+  updateSpinButton();
 }
 
 /* ==================== 侧边栏渲染 ==================== */
@@ -1873,6 +1898,65 @@ function resetAllData() {
 }
 
 /* ==================== 工具 ==================== */
+/* ==================== 聊天 ==================== */
+function renderChat(msgs) {
+  const box = document.getElementById('chatMessages');
+  if (!box) return;
+  if (!msgs || msgs.length === 0) {
+    box.innerHTML = '<div style="color:rgba(168,213,255,0.4);text-align:center;padding:12px;">还没有消息，来说第一句吧</div>';
+    return;
+  }
+  box.innerHTML = msgs.map(m => {
+    const name = escapeHtml(m.name || '匿名');
+    const text = escapeHtml(m.text || '');
+    const time = (m.time || '').slice(11, 16); // 取 HH:mm
+    return `<div style="margin-bottom:6px;">
+      <span style="color:var(--gold);font-weight:600;">${name}</span>
+      <span style="color:rgba(168,213,255,0.4);font-size:11px;margin-left:6px;">${time}</span>
+      <div style="color:rgba(255,255,255,0.9);">${text}</div>
+    </div>`;
+  }).join('');
+  // 自动滚到底部
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  if (!currentUser) {
+    showToast('请先进入抽奖页面再聊天');
+    return;
+  }
+  if (!db || !isFirebaseReady) {
+    showToast('云端未连接，无法发送');
+    return;
+  }
+
+  const msg = {
+    name: currentUser.name || '匿名',
+    id: currentUser.id || '',
+    text: text.slice(0, 80),
+    time: new Date().toLocaleString('zh-CN', { hour12: false })
+  };
+
+  db.ref('chat').push(msg).then(() => {
+    input.value = '';
+  }).catch(err => {
+    showToast('发送失败');
+    console.error(err);
+  });
+}
+
+// 回车发送聊天
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'chatInput') {
+    e.preventDefault();
+    sendChat();
+  }
+});
+
 function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
