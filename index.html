@@ -781,8 +781,22 @@
     <div class="logo-icon">💎</div>
     <h1>幸运钻石转盘</h1>
     <p>办公室专属 · 云端实时同步版</p>
+    <p id="entryDate" style="margin-top:6px;font-size:14px;color:rgba(168,213,255,0.7);"></p>
   </div>
-  <div class="entry-card">
+
+  <!-- 未开放提示 -->
+  <div id="closedCard" class="entry-card" style="display:none; text-align:center;">
+    <h2 style="color:#ffd700;">⏳ 抽奖尚未开启</h2>
+    <p style="color:rgba(255,255,255,0.8); margin:16px 0 8px;">开奖时间</p>
+    <div id="openTimeDisplay" style="font-size:22px; font-weight:700; color:var(--diamond); margin-bottom:20px;"></div>
+    <p style="font-size:13px; color:rgba(168,213,255,0.6);">请稍后再来，或等待主办人开放</p>
+    <div class="admin-link" style="margin-top:28px;">
+      <a onclick="showPasswordModal()">主办人设置 ▸</a>
+    </div>
+  </div>
+
+  <!-- 正常进入表单 -->
+  <div id="joinCard" class="entry-card">
     <h2>参与抽奖</h2>
     <div class="form-group">
       <label>工号 / ID</label>
@@ -795,6 +809,14 @@
     <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
       <a onclick="showPasswordModal()">主办人设置 ▸</a>
+    </div>
+  </div>
+
+  <!-- 在线 / 已参与人员 -->
+  <div class="panel-card" style="max-width:420px; width:100%; margin-top:20px;">
+    <h3 style="margin-bottom:10px;">👥 已参与人员 <span id="entryParticipantCount" style="font-weight:400;font-size:13px;color:rgba(168,213,255,0.7);"></span></h3>
+    <div id="entryParticipantList" style="font-size:13px; max-height:160px; overflow-y:auto; color:rgba(255,255,255,0.85); line-height:1.8;">
+      <div class="empty-tip" style="padding:12px;">暂无人参与</div>
     </div>
   </div>
 
@@ -905,7 +927,7 @@
   </div>
 
   <div id="tab-settings" class="tab-content">
-    <div class="panel-card" style="max-width:480px;">
+    <div class="panel-card" style="max-width:520px;">
       <div class="form-group">
         <label>管理密码</label>
         <input type="text" id="settingPassword" placeholder="设置新密码">
@@ -920,8 +942,28 @@
           允许已抽过的人重新进入（但不额外增加次数）
         </label>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存设置到云端</button>
-      <button class="btn btn-danger btn-sm" style="margin-left:10px;" onclick="resetAllData()">重置全部数据</button>
+
+      <hr style="border:none; border-top:1px solid rgba(168,213,255,0.15); margin:20px 0;">
+
+      <div class="form-group">
+        <label>下次抽奖开放时间</label>
+        <input type="datetime-local" id="settingOpenTime" style="width:100%;">
+        <p style="font-size:12px; color:rgba(168,213,255,0.55); margin-top:6px;">
+          设置后，该时间之前页面显示「尚未开启」。留空或点「立即开放」可马上开放。
+        </p>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+        <button class="btn btn-primary btn-sm" onclick="setOpenNow()">⚡ 立即开放</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearOpenTime()">清除时间（始终开放）</button>
+      </div>
+
+      <hr style="border:none; border-top:1px solid rgba(168,213,255,0.15); margin:20px 0;">
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存设置到云端</button>
+        <button class="btn btn-danger btn-sm" onclick="clearParticipants()">重置参与人数</button>
+        <button class="btn btn-danger btn-sm" onclick="resetAllData()">重置全部数据</button>
+      </div>
     </div>
   </div>
 </div>
@@ -983,7 +1025,8 @@ const DEFAULT_PRIZES = [
 const DEFAULT_SETTINGS = {
   password: 'admin123',
   maxSpins: 1,
-  allowRespin: true
+  allowRespin: true,
+  openTime: ''   // 空字符串 = 立即开放；有值则为 ISO 时间，例如 "2026-08-20T15:00"
 };
 
 const COLORS = ['#e63946','#f4a261','#e9c46a','#2a9d8f','#457b9d','#9b5de5','#00bbf9','#00f5d4','#fee440','#f15bb5'];
@@ -1060,6 +1103,7 @@ function initFirebase() {
       if (document.getElementById('adminPage').style.display !== 'none') {
         renderParticipantTable();
       }
+      updateEntryUI();
     });
 
     db.ref('winners').on('value', (snap) => {
@@ -1086,6 +1130,7 @@ function initFirebase() {
         loadSettingsForm();
       }
       updateSpinButton();
+      updateEntryUI();
     });
 
   } catch (err) {
@@ -1110,10 +1155,17 @@ function loadLocalFallback() {
     winners = [];
     settings = {...DEFAULT_SETTINGS};
   }
+  setTimeout(updateEntryUI, 50);
 }
 
 /* ==================== 入口 ==================== */
 function joinLottery() {
+  if (!isLotteryOpen()) {
+    showToast('抽奖尚未开启，请等待开放时间');
+    updateEntryUI();
+    return;
+  }
+
   const id = document.getElementById('inputId').value.trim();
   const name = document.getElementById('inputName').value.trim();
 
@@ -1165,6 +1217,9 @@ function showPage(page) {
   document.getElementById('entryPage').style.display = page === 'entry' ? 'flex' : 'none';
   document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
   document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
+  if (page === 'entry') {
+    updateEntryUI();
+  }
 }
 
 /* ==================== 转盘绘制 ==================== */
@@ -1589,7 +1644,8 @@ function clearParticipants() {
     localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
   }
   renderParticipantTable();
-  showToast('名单已清空');
+  updateEntryUI();
+  showToast('参与人数已重置');
 }
 
 function exportParticipants() {
@@ -1647,6 +1703,25 @@ function loadSettingsForm() {
   document.getElementById('settingPassword').value = settings.password || '';
   document.getElementById('settingMaxSpins').value = settings.maxSpins || 1;
   document.getElementById('settingAllowRespin').checked = settings.allowRespin !== false;
+
+  // 处理开放时间回填（datetime-local 需要本地格式 YYYY-MM-DDTHH:mm）
+  const ot = settings.openTime || '';
+  const input = document.getElementById('settingOpenTime');
+  if (ot) {
+    try {
+      const d = new Date(ot);
+      if (!isNaN(d.getTime())) {
+        const pad = n => String(n).padStart(2, '0');
+        input.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } else {
+        input.value = '';
+      }
+    } catch (e) {
+      input.value = '';
+    }
+  } else {
+    input.value = '';
+  }
 }
 
 function saveSettings() {
@@ -1656,14 +1731,118 @@ function saveSettings() {
   settings.maxSpins = Math.max(1, Math.min(99, max));
   settings.allowRespin = document.getElementById('settingAllowRespin').checked;
 
+  const localVal = document.getElementById('settingOpenTime').value;
+  if (localVal) {
+    // 转成 ISO，方便比较
+    settings.openTime = new Date(localVal).toISOString();
+  } else {
+    settings.openTime = '';
+  }
+
   if (db && isFirebaseReady) {
     db.ref('settings').set(settings).then(() => {
       showToast('设置已同步到云端');
+      updateEntryUI();
     });
   } else {
     localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
     showToast('已保存到本地');
+    updateEntryUI();
   }
+}
+
+function setOpenNow() {
+  settings.openTime = '';
+  document.getElementById('settingOpenTime').value = '';
+  if (db && isFirebaseReady) {
+    db.ref('settings').update({ openTime: '' }).then(() => {
+      showToast('已立即开放抽奖');
+      updateEntryUI();
+    });
+  } else {
+    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    showToast('已立即开放抽奖');
+    updateEntryUI();
+  }
+}
+
+function clearOpenTime() {
+  setOpenNow();
+}
+
+/** 判断当前是否已到开放时间 */
+function isLotteryOpen() {
+  if (!settings.openTime) return true;
+  const t = new Date(settings.openTime).getTime();
+  if (isNaN(t)) return true;
+  return Date.now() >= t;
+}
+
+/** 格式化显示时间 */
+function formatOpenTime(iso) {
+  if (!iso) return '已开放';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  } catch (e) {
+    return iso;
+  }
+}
+
+/** 更新入口页状态（开放/未开放 + 人员列表 + 日期） */
+function updateEntryUI() {
+  // 日期
+  const dateEl = document.getElementById('entryDate');
+  if (dateEl) {
+    dateEl.textContent = new Date().toLocaleDateString('zh-CN', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+    });
+  }
+
+  const open = isLotteryOpen();
+  const closedCard = document.getElementById('closedCard');
+  const joinCard = document.getElementById('joinCard');
+
+  if (closedCard && joinCard) {
+    if (open) {
+      closedCard.style.display = 'none';
+      joinCard.style.display = 'block';
+    } else {
+      closedCard.style.display = 'block';
+      joinCard.style.display = 'none';
+      const otEl = document.getElementById('openTimeDisplay');
+      if (otEl) otEl.textContent = formatOpenTime(settings.openTime);
+    }
+  }
+
+  renderEntryParticipants();
+}
+
+function renderEntryParticipants() {
+  const listEl = document.getElementById('entryParticipantList');
+  const countEl = document.getElementById('entryParticipantCount');
+  if (!listEl) return;
+
+  const list = Object.values(participants || {});
+  if (countEl) countEl.textContent = `（${list.length} 人）`;
+
+  if (list.length === 0) {
+    listEl.innerHTML = '<div class="empty-tip" style="padding:12px;">暂无人参与</div>';
+    return;
+  }
+
+  // 按加入时间倒序，最新在前
+  list.sort((a, b) => (b.joinTime || '').localeCompare(a.joinTime || ''));
+  listEl.innerHTML = list.map(p => {
+    const status = (p.spinCount || 0) >= (settings.maxSpins || 1) ? ' · 已抽' : '';
+    return `<div style="display:flex; justify-content:space-between; padding:2px 0;">
+      <span>${escapeHtml(p.name)} <span style="color:rgba(168,213,255,0.5);font-size:12px;">(${escapeHtml(p.id)})</span></span>
+      <span style="color:rgba(168,213,255,0.45);font-size:12px;">${status}</span>
+    </div>`;
+  }).join('');
 }
 
 function resetAllData() {
@@ -1713,6 +1892,13 @@ document.addEventListener('keydown', e => {
 
 // 启动
 initFirebase();
+
+// 每 30 秒检查一次是否到了开放时间（自动切换界面）
+setInterval(() => {
+  if (document.getElementById('entryPage').style.display !== 'none') {
+    updateEntryUI();
+  }
+}, 30000);
 </script>
 </body>
 </html>
