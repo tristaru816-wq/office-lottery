@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幸运钻石转盘 · 云端同步版</title>
+<!-- Firebase SDK (compat 方便单文件使用) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --blue-deep: #0a1f44;
+    --blue-main: #1a3a6e;
+    --blue-light: #2d5aa0;
+    --blue-sky: #4a90d9;
+    --white: #ffffff;
+    --off-white: #f0f7ff;
+    --red: #e63946;
+    --red-dark: #c1121f;
+    --gold: #ffd700;
+    --diamond: #a8d5ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: linear-gradient(135deg, #0a1f44 0%, #1a3a6e 40%, #0d2b5c 100%);
+    min-height: 100vh;
+    color: var(--white);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(168,213,255,0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(74,144,217,0.1) 0%, transparent 45%),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .diamond-pattern {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L55 30 L30 55 L5 30 Z' fill='none' stroke='rgba(168,213,255,0.06)' stroke-width='1'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* 连接状态 */
+  .sync-status {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    background: rgba(10,31,68,0.9);
+    border: 1px solid rgba(168,213,255,0.3);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(8px);
+  }
+  .sync-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #6c757d;
+  }
+  .sync-status.connected .dot { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+  .sync-status.error .dot { background: #e74c3c; }
+
+  /* ===== 入口页 ===== */
+  #entryPage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .logo-area {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .logo-icon {
+    font-size: 64px;
+    filter: drop-shadow(0 0 20px rgba(168,213,255,0.6));
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .logo-area h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, #a8d5ff, #ffffff, #4a90d9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-top: 12px;
+  }
+
+  .logo-area p {
+    color: var(--diamond);
+    margin-top: 8px;
+    font-size: 15px;
+    opacity: 0.85;
+  }
+
+  .entry-card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(168,213,255,0.25);
+    border-radius: 20px;
+    padding: 40px 48px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  }
+
+  .entry-card h2 {
+    text-align: center;
+    font-size: 20px;
+    margin-bottom: 28px;
+    color: var(--diamond);
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--diamond);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(168,213,255,0.3);
+    border-radius: 10px;
+    background: rgba(10,31,68,0.6);
+    color: white;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+
+  .form-group input:focus {
+    border-color: var(--blue-sky);
+    box-shadow: 0 0 0 3px rgba(74,144,217,0.25);
+  }
+
+  .form-group input::placeholder {
+    color: rgba(168,213,255,0.4);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 1px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
+    color: white;
+    box-shadow: 0 8px 24px rgba(230,57,70,0.4);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(230,57,70,0.55);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.1);
+    color: var(--diamond);
+    border: 1px solid rgba(168,213,255,0.3);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.18);
+  }
+
+  .admin-link {
+    text-align: center;
+    margin-top: 24px;
+  }
+
+  .admin-link a {
+    color: rgba(168,213,255,0.5);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .admin-link a:hover { color: var(--diamond); }
+
+  /* ===== 主抽奖页 ===== */
+  #lotteryPage { display: none; }
+
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    margin-bottom: 10px;
+  }
+
+  .user-badge {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(168,213,255,0.25);
+    border-radius: 30px;
+    padding: 8px 18px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .user-badge .id {
+    color: var(--diamond);
+    font-weight: 600;
+  }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .side-panel { order: 2; }
+    .wheel-section { order: 1; }
+  }
+
+  .wheel-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .wheel-wrapper {
+    position: relative;
+    width: 420px;
+    height: 420px;
+    margin: 10px 0 24px;
+  }
+
+  @media (max-width: 500px) {
+    .wheel-wrapper { width: 300px; height: 300px; }
+    .spin-btn { font-size: 18px; padding: 14px 40px; }
+    .entry-card { padding: 28px 24px; margin: 0 12px; }
+    .logo-area h1 { font-size: 28px; letter-spacing: 2px; }
+    .container { padding: 12px; }
+    .top-bar { flex-wrap: wrap; gap: 10px; }
+    .panel-card { padding: 14px 16px; }
+    .sync-status { font-size: 11px; padding: 5px 12px; }
+  }
+
+  @media (max-width: 380px) {
+    .wheel-wrapper { width: 260px; height: 260px; }
+  }
+
+  #wheelCanvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 
+      0 0 0 8px rgba(168,213,255,0.15),
+      0 0 0 14px rgba(26,58,110,0.6),
+      0 20px 50px rgba(0,0,0,0.4);
+  }
+
+  .wheel-pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 36px solid var(--red);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    z-index: 10;
+  }
+
+  .wheel-pointer::after {
+    content: "";
+    position: absolute;
+    top: -36px;
+    left: -8px;
+    width: 16px;
+    height: 16px;
+    background: var(--gold);
+    border-radius: 50%;
+    border: 2px solid var(--red);
+  }
+
+  .spin-btn {
+    background: linear-gradient(135deg, var(--red) 0%, #ff4d5a 50%, var(--red-dark) 100%);
+    color: white;
+    font-size: 20px;
+    padding: 16px 56px;
+    border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(230,57,70,0.5);
+    border: 2px solid rgba(255,255,255,0.2);
+    letter-spacing: 3px;
+  }
+
+  .spin-btn:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 14px 36px rgba(230,57,70,0.65);
+  }
+
+  .spin-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .spin-status {
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--diamond);
+    min-height: 22px;
+  }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .panel-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(168,213,255,0.2);
+    border-radius: 16px;
+    padding: 18px 20px;
+    backdrop-filter: blur(10px);
+  }
+
+  .panel-card h3 {
+    font-size: 15px;
+    color: var(--diamond);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .prize-list {
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .prize-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(168,213,255,0.1);
+  }
+
+  .prize-item:last-child { border-bottom: none; }
+
+  .prize-thumb {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+
+  .prize-info { flex: 1; min-width: 0; }
+
+  .prize-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .prize-meta {
+    font-size: 12px;
+    color: rgba(168,213,255,0.7);
+    margin-top: 2px;
+  }
+
+  .prize-prob {
+    font-size: 13px;
+    color: var(--gold);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .participant-count {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .participant-count span {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--diamond);
+  }
+
+  .winner-list {
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+
+  .winner-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    margin: 0 -6px;
+    border-radius: 8px;
+    border-bottom: 1px solid rgba(168,213,255,0.08);
+    transition: background 0.3s;
+  }
+
+  .winner-item:last-child { border-bottom: none; }
+
+  .winner-item .name { color: var(--white); }
+  .winner-item .prize { color: var(--gold); font-weight: 600; }
+
+  .winner-item.latest {
+    background: rgba(255, 215, 0, 0.12);
+    border: 1px solid rgba(255, 215, 0, 0.35);
+    animation: highlightPulse 1.5s ease-out;
+  }
+
+  @keyframes highlightPulse {
+    0% { background: rgba(255, 215, 0, 0.35); transform: scale(1.02); }
+    100% { background: rgba(255, 215, 0, 0.12); transform: scale(1); }
+  }
+
+  /* ===== 中奖弹窗 ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,15,40,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: linear-gradient(160deg, #1a3a6e 0%, #0a1f44 100%);
+    border: 1px solid rgba(168,213,255,0.35);
+    border-radius: 20px;
+    padding: 36px 40px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .modal.win-modal::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .modal h2 {
+    font-size: 26px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .modal .prize-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin: 12px auto;
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 20px rgba(255,215,0,0.4);
+  }
+
+  .modal .prize-title {
+    font-size: 22px;
+    color: var(--gold);
+    font-weight: 700;
+    margin: 8px 0;
+  }
+
+  .modal .prize-desc {
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 8px;
+  }
+
+  .modal .prize-amount {
+    font-size: 18px;
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  .modal .btn { margin-top: 24px; min-width: 140px; }
+
+  /* ===== 管理后台 ===== */
+  #adminPage { display: none; }
+
+  .admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .admin-header h1 {
+    font-size: 24px;
+    color: var(--diamond);
+  }
+
+  .admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(168,213,255,0.2);
+    border-radius: 10px;
+    color: var(--diamond);
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .tab-btn.active {
+    background: rgba(74,144,217,0.3);
+    border-color: var(--blue-sky);
+    color: white;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .prize-admin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .prize-admin-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(168,213,255,0.18);
+    border-radius: 14px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .prize-admin-card img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.3);
+  }
+
+  .prize-admin-card .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .prize-admin-card input, .prize-admin-card textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(168,213,255,0.25);
+    border-radius: 8px;
+    background: rgba(10,31,68,0.5);
+    color: white;
+    font-size: 13px;
+  }
+
+  .prize-admin-card textarea {
+    grid-column: 1 / -1;
+    resize: vertical;
+    min-height: 50px;
+  }
+
+  .prize-admin-card .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-sm {
+    padding: 7px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  .btn-danger {
+    background: rgba(230,57,70,0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(230,57,70,0.4);
+  }
+
+  .btn-danger:hover { background: rgba(230,57,70,0.35); }
+
+  .btn-add {
+    background: linear-gradient(135deg, var(--blue-light), var(--blue-sky));
+    color: white;
+    margin-bottom: 16px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(168,213,255,0.12);
+  }
+
+  th {
+    color: var(--diamond);
+    font-weight: 600;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .empty-tip {
+    text-align: center;
+    color: rgba(168,213,255,0.5);
+    padding: 30px;
+    font-size: 14px;
+  }
+
+  .password-modal input {
+    width: 100%;
+    padding: 14px;
+    margin: 16px 0;
+    border: 1px solid rgba(168,213,255,0.3);
+    border-radius: 10px;
+    background: rgba(10,31,68,0.6);
+    color: white;
+    font-size: 16px;
+    text-align: center;
+    letter-spacing: 4px;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(168,213,255,0.25);
+    border-radius: 3px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(10,31,68,0.95);
+    border: 1px solid var(--blue-sky);
+    color: white;
+    padding: 12px 28px;
+    border-radius: 30px;
+    font-size: 14px;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.35s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* 设置页提示 */
+  .setup-box {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(168,213,255,0.25);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 640px;
+    margin: 20px auto;
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.85);
+  }
+  .setup-box h3 { color: var(--diamond); margin-bottom: 12px; }
+  .setup-box code {
+    background: rgba(0,0,0,0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .setup-box ol { padding-left: 20px; margin: 12px 0; }
+  .setup-box li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="diamond-pattern"></div>
+
+<!-- 同步状态指示 -->
+<div class="sync-status" id="syncStatus">
+  <span class="dot"></span>
+  <span id="syncText">连接中...</span>
+</div>
+
+<!-- ========== 入口页 ========== -->
+<div id="entryPage">
+  <div class="logo-area">
+    <div class="logo-icon">💎</div>
+    <h1>幸运钻石转盘</h1>
+    <p>办公室专属 · 云端实时同步版</p>
+  </div>
+  <div class="entry-card">
+    <h2>参与抽奖</h2>
+    <div class="form-group">
+      <label>工号 / ID</label>
+      <input type="text" id="inputId" placeholder="请输入工号" maxlength="30" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>姓名</label>
+      <input type="text" id="inputName" placeholder="请输入姓名" maxlength="20" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
+    <div class="admin-link">
+      <a onclick="showPasswordModal()">主办人设置 ▸</a>
+    </div>
+  </div>
+
+  <!-- 首次使用提示（当 Firebase 未配置时会显示） -->
+  <div id="setupHint" class="setup-box" style="display:none;">
+    <h3>⚙️ 首次使用需要配置 Firebase（免费）</h3>
+    <p>只需 5 分钟，配置一次后所有人都能实时同步：</p>
+    <ol>
+      <li>打开 <a href="https://console.firebase.google.com/" target="_blank" style="color:#4a90d9;">Firebase 控制台</a>，登录 Google 账号</li>
+      <li>创建项目 → 添加 Web 应用 → 复制配置代码</li>
+      <li>左侧菜单「Realtime Database」→ 创建数据库 → 选择「测试模式」启动</li>
+      <li>把下面的 <code>firebaseConfig</code> 替换成你的配置</li>
+      <li>保存 HTML，发给大家或上传到任意免费空间（Netlify / GitHub Pages）</li>
+    </ol>
+    <p style="margin-top:12px;color:rgba(168,213,255,0.7);font-size:13px;">
+      免费额度足够办公室使用（100 人同时在线、1GB 存储）。数据存在你自己的 Firebase 项目里，安全可控。
+    </p>
+  </div>
+</div>
+
+<!-- ========== 抽奖主页 ========== -->
+<div id="lotteryPage" class="container">
+  <div class="top-bar">
+    <div class="user-badge">
+      <span>👤</span>
+      <span class="id" id="currentUserDisplay"></span>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="backToEntry()">返回入口</button>
+  </div>
+
+  <div class="main-layout">
+    <div class="wheel-section">
+      <div class="wheel-wrapper">
+        <div class="wheel-pointer"></div>
+        <canvas id="wheelCanvas" width="420" height="420"></canvas>
+      </div>
+      <button class="btn spin-btn" id="spinBtn" onclick="startSpin()">开始抽奖</button>
+      <div class="spin-status" id="spinStatus"></div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel-card">
+        <h3>🎁 奖品一览</h3>
+        <div class="prize-list" id="prizeListSide"></div>
+      </div>
+      <div class="panel-card">
+        <h3>👥 参与人数</h3>
+        <div class="participant-count" id="participantCount">0 <span>人</span></div>
+      </div>
+      <div class="panel-card">
+        <h3>🏆 中奖记录</h3>
+        <div class="winner-list" id="winnerList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 管理后台 ========== -->
+<div id="adminPage" class="container">
+  <div class="admin-header">
+    <h1>⚙️ 主办人后台（云端同步）</h1>
+    <button class="btn btn-secondary btn-sm" onclick="exitAdmin()">返回入口</button>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="tab-btn active" onclick="switchTab('prizes')">奖品管理</button>
+    <button class="tab-btn" onclick="switchTab('participants')">抽奖名单</button>
+    <button class="tab-btn" onclick="switchTab('winners')">中奖记录</button>
+    <button class="tab-btn" onclick="switchTab('settings')">系统设置</button>
+  </div>
+
+  <div id="tab-prizes" class="tab-content active">
+    <button class="btn btn-add btn-sm" onclick="addPrize()">＋ 添加奖品</button>
+    <div class="prize-admin-list" id="prizeAdminList"></div>
+    <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="savePrizes()">💾 保存并同步到云端</button>
+      <span style="font-size:13px; color:rgba(168,213,255,0.6); align-self:center;">几率按权重计算，建议总和方便查看</span>
+    </div>
+  </div>
+
+  <div id="tab-participants" class="tab-content">
+    <div style="margin-bottom:12px; display:flex; gap:10px;">
+      <button class="btn btn-secondary btn-sm" onclick="exportParticipants()">导出名单</button>
+      <button class="btn btn-danger btn-sm" onclick="clearParticipants()">清空名单</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>工号</th><th>姓名</th><th>加入时间</th><th>状态</th></tr>
+        </thead>
+        <tbody id="participantTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-winners" class="tab-content">
+    <div style="margin-bottom:12px;">
+      <button class="btn btn-danger btn-sm" onclick="clearWinners()">清空中奖记录</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>工号</th><th>姓名</th><th>奖品</th><th>金额</th><th>时间</th></tr>
+        </thead>
+        <tbody id="winnerTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-settings" class="tab-content">
+    <div class="panel-card" style="max-width:480px;">
+      <div class="form-group">
+        <label>管理密码</label>
+        <input type="text" id="settingPassword" placeholder="设置新密码">
+      </div>
+      <div class="form-group">
+        <label>每人可抽次数</label>
+        <input type="number" id="settingMaxSpins" min="1" max="99" value="1">
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="settingAllowRespin" style="width:auto; margin-right:8px;">
+          允许已抽过的人重新进入（但不额外增加次数）
+        </label>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">保存设置到云端</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:10px;" onclick="resetAllData()">重置全部数据</button>
+    </div>
+  </div>
+</div>
+
+<!-- 密码弹窗 -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal password-modal">
+    <h2>主办人验证</h2>
+    <p style="color:rgba(168,213,255,0.7); font-size:14px;">请输入管理密码</p>
+    <input type="password" id="adminPasswordInput" placeholder="密码" maxlength="20">
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="btn btn-secondary btn-sm" onclick="closePasswordModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="verifyAdmin()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 中奖结果弹窗 -->
+<div class="modal-overlay" id="resultModal">
+  <div class="modal win-modal" id="resultModalContent">
+    <h2 id="resultTitle">🎉 恭喜中奖！</h2>
+    <img id="resultImg" class="prize-img" src="" alt="" style="display:none;">
+    <div class="prize-title" id="resultPrizeName"></div>
+    <div class="prize-desc" id="resultPrizeDesc"></div>
+    <div class="prize-amount" id="resultPrizeAmount"></div>
+    <button class="btn btn-primary" onclick="closeResultModal()">确定</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   【重要】请把下面的 firebaseConfig 替换成你自己的配置
+   1. 打开 https://console.firebase.google.com/
+   2. 创建项目 → 添加 Web 应用 → 复制配置
+   3. Realtime Database → 创建数据库 → 测试模式
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCbnxEf4ORDI_orFxYDaJVpTiBj-xD4nDw",
+  authDomain: "office-lottery.firebaseapp.com",
+  databaseURL: "https://office-lottery-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "office-lottery",
+  storageBucket: "office-lottery.firebasestorage.app",
+  messagingSenderId: "22901239080",
+  appId: "1:22901239080:web:5299e4d6b8bdb7a604341d",
+  measurementId: "G-EGV12NDYYH"
+};
+
+/* ==================== 默认数据 ==================== */
+const DEFAULT_PRIZES = [
+  { id: 1, name: '一等奖', desc: '精美礼品一份', amount: '价值 500 元', image: '', weight: 5, color: '#e63946' },
+  { id: 2, name: '二等奖', desc: '精美礼品一份', amount: '价值 200 元', image: '', weight: 10, color: '#f4a261' },
+  { id: 3, name: '三等奖', desc: '精美小礼品', amount: '价值 50 元', image: '', weight: 20, color: '#2a9d8f' },
+  { id: 4, name: '幸运奖', desc: '小惊喜', amount: '价值 20 元', image: '', weight: 25, color: '#457b9d' },
+  { id: 5, name: '谢谢参与', desc: '感谢您的参与', amount: '', image: '', weight: 40, color: '#6c757d' }
+];
+
+const DEFAULT_SETTINGS = {
+  password: 'admin123',
+  maxSpins: 1,
+  allowRespin: true
+};
+
+const COLORS = ['#e63946','#f4a261','#e9c46a','#2a9d8f','#457b9d','#9b5de5','#00bbf9','#00f5d4','#fee440','#f15bb5'];
+
+/* ==================== 全局状态 ==================== */
+let db = null;
+let prizes = [];
+let participants = {};      // 用对象，key = id
+let winners = [];
+let settings = {...DEFAULT_SETTINGS};
+let currentUser = null;
+let isSpinning = false;
+let wheelRotation = 0;
+let isFirebaseReady = false;
+
+/* ==================== Firebase 初始化 ==================== */
+function initFirebase() {
+  const statusEl = document.getElementById('syncStatus');
+  const textEl = document.getElementById('syncText');
+
+  // 检查是否已填写真实配置
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY' || !firebaseConfig.databaseURL.includes('firebaseio.com') && !firebaseConfig.databaseURL.includes('firebasedatabase.app')) {
+    statusEl.className = 'sync-status error';
+    textEl.textContent = '请先配置 Firebase';
+    document.getElementById('setupHint').style.display = 'block';
+    // 仍然用本地模式让页面能打开
+    loadLocalFallback();
+    return;
+  }
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+
+    // 监听连接状态
+    const connectedRef = db.ref('.info/connected');
+    connectedRef.on('value', (snap) => {
+      if (snap.val() === true) {
+        statusEl.className = 'sync-status connected';
+        textEl.textContent = '云端已连接 · 实时同步';
+        isFirebaseReady = true;
+      } else {
+        statusEl.className = 'sync-status';
+        textEl.textContent = '连接中...';
+      }
+    });
+
+    // 实时监听数据
+    db.ref('prizes').on('value', (snap) => {
+      const val = snap.val();
+      if (val) {
+        prizes = Array.isArray(val) ? val : Object.values(val);
+      } else {
+        // 首次初始化默认奖品
+        prizes = [...DEFAULT_PRIZES];
+        db.ref('prizes').set(prizes);
+      }
+      prizes.forEach((p, i) => { if (!p.color) p.color = COLORS[i % COLORS.length]; });
+      if (document.getElementById('lotteryPage').style.display !== 'none') {
+        drawWheel();
+        renderSidePanel();
+      }
+      if (document.getElementById('adminPage').style.display !== 'none') {
+        renderAdminPrizes();
+      }
+    });
+
+    db.ref('participants').on('value', (snap) => {
+      participants = snap.val() || {};
+      if (document.getElementById('lotteryPage').style.display !== 'none') {
+        renderSidePanel();
+        updateSpinButton();
+      }
+      if (document.getElementById('adminPage').style.display !== 'none') {
+        renderParticipantTable();
+      }
+    });
+
+    db.ref('winners').on('value', (snap) => {
+      const val = snap.val();
+      winners = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+      // 按时间倒序（新的在前）
+      winners.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+      if (document.getElementById('lotteryPage').style.display !== 'none') {
+        renderSidePanel();
+      }
+      if (document.getElementById('adminPage').style.display !== 'none') {
+        renderWinnerTable();
+      }
+    });
+
+    db.ref('settings').on('value', (snap) => {
+      const val = snap.val();
+      if (val) {
+        settings = Object.assign({}, DEFAULT_SETTINGS, val);
+      } else {
+        db.ref('settings').set(DEFAULT_SETTINGS);
+      }
+      if (document.getElementById('adminPage').style.display !== 'none') {
+        loadSettingsForm();
+      }
+      updateSpinButton();
+    });
+
+  } catch (err) {
+    console.error(err);
+    statusEl.className = 'sync-status error';
+    textEl.textContent = 'Firebase 初始化失败';
+    document.getElementById('setupHint').style.display = 'block';
+    loadLocalFallback();
+  }
+}
+
+function loadLocalFallback() {
+  // 没有配置时用 localStorage，方便先预览
+  try {
+    prizes = JSON.parse(localStorage.getItem('diamond_lottery_prizes')) || [...DEFAULT_PRIZES];
+    participants = JSON.parse(localStorage.getItem('diamond_lottery_participants')) || {};
+    winners = JSON.parse(localStorage.getItem('diamond_lottery_winners')) || [];
+    settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem('diamond_lottery_settings')) || {});
+  } catch (e) {
+    prizes = [...DEFAULT_PRIZES];
+    participants = {};
+    winners = [];
+    settings = {...DEFAULT_SETTINGS};
+  }
+}
+
+/* ==================== 入口 ==================== */
+function joinLottery() {
+  const id = document.getElementById('inputId').value.trim();
+  const name = document.getElementById('inputName').value.trim();
+
+  if (!id || !name) {
+    showToast('请填写工号和姓名');
+    return;
+  }
+
+  let user = participants[id];
+  if (user) {
+    if (!settings.allowRespin && (user.spinCount || 0) >= settings.maxSpins) {
+      showToast('您已参与过抽奖');
+      return;
+    }
+    user.name = name; // 更新姓名
+  } else {
+    user = {
+      id,
+      name,
+      joinTime: new Date().toLocaleString('zh-CN'),
+      spinCount: 0
+    };
+  }
+
+  // 写入云端
+  if (db && isFirebaseReady) {
+    db.ref('participants/' + id).set(user);
+  } else {
+    participants[id] = user;
+    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+  }
+
+  currentUser = user;
+  document.getElementById('currentUserDisplay').textContent = `${name}（${id}）`;
+  showPage('lottery');
+  renderSidePanel();
+  drawWheel();
+  updateSpinButton();
+}
+
+function backToEntry() {
+  currentUser = null;
+  document.getElementById('inputId').value = '';
+  document.getElementById('inputName').value = '';
+  showPage('entry');
+}
+
+function showPage(page) {
+  document.getElementById('entryPage').style.display = page === 'entry' ? 'flex' : 'none';
+  document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
+  document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
+}
+
+/* ==================== 转盘绘制 ==================== */
+function drawWheel() {
+  const canvas = document.getElementById('wheelCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  const radius = center - 10;
+
+  ctx.clearRect(0, 0, size, size);
+
+  if (prizes.length === 0) {
+    ctx.fillStyle = '#1a3a6e';
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#a8d5ff';
+    ctx.font = '16px Microsoft YaHei';
+    ctx.textAlign = 'center';
+    ctx.fillText('暂无奖品', center, center);
+    return;
+  }
+
+  const arc = (Math.PI * 2) / prizes.length;
+
+  prizes.forEach((prize, i) => {
+    const start = i * arc + wheelRotation;
+    const end = start + arc;
+
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = prize.color || COLORS[i % COLORS.length];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate(start + arc / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Microsoft YaHei';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 3;
+
+    let text = prize.name;
+    if (text.length > 6) text = text.slice(0, 6) + '…';
+    ctx.fillText(text, radius - 18, 5);
+    ctx.restore();
+  });
+
+  // 中心圆
+  ctx.beginPath();
+  ctx.arc(center, center, 28, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a1f44';
+  ctx.fill();
+  ctx.strokeStyle = '#a8d5ff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#a8d5ff';
+  ctx.font = '20px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💎', center, center);
+}
+
+/* ==================== 抽奖逻辑 ==================== */
+function getWeightedPrize() {
+  const total = prizes.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
+  if (total <= 0) return prizes[prizes.length - 1];
+
+  let r = Math.random() * total;
+  for (const p of prizes) {
+    r -= (Number(p.weight) || 0);
+    if (r <= 0) return p;
+  }
+  return prizes[prizes.length - 1];
+}
+
+function startSpin() {
+  if (isSpinning || !currentUser) return;
+  if ((currentUser.spinCount || 0) >= settings.maxSpins) {
+    showToast('您的抽奖次数已用完');
+    return;
+  }
+  if (prizes.length === 0) {
+    showToast('暂无奖品，请联系主办人');
+    return;
+  }
+
+  isSpinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('spinStatus').textContent = '转盘旋转中…';
+
+  const selected = getWeightedPrize();
+  const index = prizes.findIndex(p => p.id === selected.id);
+  const arc = (Math.PI * 2) / prizes.length;
+
+  const targetAngle = (Math.PI * 1.5) - (index * arc + arc / 2);
+  const extraSpins = 5 + Math.floor(Math.random() * 3);
+  const finalRotation = extraSpins * Math.PI * 2 + targetAngle;
+
+  const startRotation = wheelRotation;
+  const duration = 4500;
+  const startTime = performance.now();
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    wheelRotation = startRotation + (finalRotation - startRotation) * ease;
+    wheelRotation = wheelRotation % (Math.PI * 2);
+    drawWheel();
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      wheelRotation = finalRotation % (Math.PI * 2);
+      drawWheel();
+      finishSpin(selected);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function finishSpin(prize) {
+  isSpinning = false;
+  currentUser.spinCount = (currentUser.spinCount || 0) + 1;
+
+  // 更新参与者
+  if (db && isFirebaseReady) {
+    db.ref('participants/' + currentUser.id).update({
+      spinCount: currentUser.spinCount,
+      name: currentUser.name
+    });
+  } else {
+    participants[currentUser.id] = currentUser;
+    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+  }
+
+  // 记录中奖
+  const isWin = prize.name !== '谢谢参与' && (Number(prize.weight) || 0) > 0;
+  const record = {
+    id: currentUser.id,
+    name: currentUser.name,
+    prizeName: prize.name,
+    prizeAmount: prize.amount || '',
+    time: new Date().toLocaleString('zh-CN'),
+    isWin
+  };
+
+  if (db && isFirebaseReady) {
+    // 用 push 保证唯一，再限制长度
+    const winnersRef = db.ref('winners');
+    winnersRef.push(record).then(() => {
+      // 可选：限制最多保留 200 条（简单做法是定期清理，这里先不强制）
+    });
+  } else {
+    winners.unshift(record);
+    if (winners.length > 200) winners.length = 200;
+    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+  }
+
+  updateSpinButton();
+  renderSidePanel();
+  showResult(prize);
+}
+
+function updateSpinButton() {
+  const btn = document.getElementById('spinBtn');
+  const status = document.getElementById('spinStatus');
+  if (!currentUser) return;
+
+  // 从最新 participants 刷新当前用户状态
+  if (participants[currentUser.id]) {
+    currentUser = participants[currentUser.id];
+  }
+
+  const left = settings.maxSpins - (currentUser.spinCount || 0);
+  if (left <= 0) {
+    btn.disabled = true;
+    status.textContent = '您的抽奖次数已用完';
+  } else {
+    btn.disabled = false;
+    status.textContent = `剩余 ${left} 次机会`;
+  }
+}
+
+function showResult(prize) {
+  const isThanks = prize.name === '谢谢参与' || !prize.amount;
+  document.getElementById('resultTitle').textContent = isThanks ? '谢谢参与' : '🎉 恭喜中奖！';
+  document.getElementById('resultPrizeName').textContent = prize.name;
+  document.getElementById('resultPrizeDesc').textContent = prize.desc || '';
+  document.getElementById('resultPrizeAmount').textContent = prize.amount || '';
+
+  const img = document.getElementById('resultImg');
+  if (prize.image) {
+    img.src = prize.image;
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+
+  document.getElementById('resultModal').classList.add('show');
+}
+
+function closeResultModal() {
+  document.getElementById('resultModal').classList.remove('show');
+  renderSidePanel();
+}
+
+/* ==================== 侧边栏渲染 ==================== */
+function renderSidePanel() {
+  const list = document.getElementById('prizeListSide');
+  if (prizes.length === 0) {
+    list.innerHTML = '<div class="empty-tip">暂无奖品</div>';
+  } else {
+    list.innerHTML = prizes.map(p => {
+      return `
+        <div class="prize-item">
+          ${p.image ? `<img class="prize-thumb" src="${p.image}" alt="">` : `<div class="prize-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px;">🎁</div>`}
+          <div class="prize-info">
+            <div class="prize-name">${escapeHtml(p.name)}</div>
+            <div class="prize-meta">${escapeHtml(p.amount || p.desc || '')}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  const count = Object.keys(participants).length;
+  document.getElementById('participantCount').innerHTML = `${count} <span>人</span>`;
+
+  const winList = document.getElementById('winnerList');
+  const realWins = winners.filter(w => w.isWin !== false && w.prizeName !== '谢谢参与').slice(0, 15);
+  if (realWins.length === 0) {
+    winList.innerHTML = '<div class="empty-tip">暂无中奖记录</div>';
+  } else {
+    winList.innerHTML = realWins.map((w, i) => `
+      <div class="winner-item${i === 0 ? ' latest' : ''}">
+        <span class="name">${escapeHtml(w.name)}</span>
+        <span class="prize">${escapeHtml(w.prizeName)}</span>
+      </div>`).join('');
+  }
+}
+
+/* ==================== 管理后台 ==================== */
+function showPasswordModal() {
+  document.getElementById('adminPasswordInput').value = '';
+  document.getElementById('passwordModal').classList.add('show');
+  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+}
+
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.remove('show');
+}
+
+function verifyAdmin() {
+  const pwd = document.getElementById('adminPasswordInput').value;
+  if (pwd === settings.password) {
+    closePasswordModal();
+    showPage('admin');
+    renderAdminPrizes();
+    renderParticipantTable();
+    renderWinnerTable();
+    loadSettingsForm();
+  } else {
+    showToast('密码错误');
+  }
+}
+
+function exitAdmin() {
+  showPage('entry');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* 奖品管理 */
+function renderAdminPrizes() {
+  const container = document.getElementById('prizeAdminList');
+  if (prizes.length === 0) {
+    container.innerHTML = '<div class="empty-tip">还没有奖品，点击上方按钮添加</div>';
+    return;
+  }
+
+  container.innerHTML = prizes.map((p, i) => `
+    <div class="prize-admin-card" data-index="${i}">
+      <div>
+        ${p.image 
+          ? `<img src="${p.image}" alt="" onclick="triggerImageUpload(${i})" style="cursor:pointer;" title="点击更换图片">`
+          : `<div style="width:80px;height:80px;border-radius:10px;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:28px;" onclick="triggerImageUpload(${i})" title="点击上传图片">📷</div>`
+        }
+        <input type="file" id="imgInput${i}" accept="image/*" style="display:none;" onchange="handleImageUpload(event, ${i})">
+      </div>
+      <div class="fields">
+        <input type="text" placeholder="奖品名称" value="${escapeAttr(p.name)}" data-field="name">
+        <input type="text" placeholder="金额/价值" value="${escapeAttr(p.amount || '')}" data-field="amount">
+        <textarea placeholder="奖品描述" data-field="desc">${escapeHtml(p.desc || '')}</textarea>
+        <input type="number" placeholder="中奖权重" value="${p.weight || 0}" min="0" step="1" data-field="weight" style="grid-column:1/-1;">
+      </div>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="removePrize(${i})">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function triggerImageUpload(index) {
+  document.getElementById('imgInput' + index).click();
+}
+
+function handleImageUpload(e, index) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 400 * 1024) {
+    showToast('图片请小于 400KB（云端建议更小）');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    prizes[index].image = ev.target.result;
+    renderAdminPrizes();
+  };
+  reader.readAsDataURL(file);
+}
+
+function addPrize() {
+  const maxId = prizes.reduce((m, p) => Math.max(m, p.id || 0), 0);
+  prizes.push({
+    id: maxId + 1,
+    name: '新奖品',
+    desc: '',
+    amount: '',
+    image: '',
+    weight: 10,
+    color: COLORS[prizes.length % COLORS.length]
+  });
+  renderAdminPrizes();
+}
+
+function removePrize(index) {
+  if (!confirm('确定删除该奖品？')) return;
+  prizes.splice(index, 1);
+  renderAdminPrizes();
+}
+
+function savePrizes() {
+  const cards = document.querySelectorAll('.prize-admin-card');
+  cards.forEach(card => {
+    const index = Number(card.dataset.index);
+    const inputs = card.querySelectorAll('[data-field]');
+    inputs.forEach(inp => {
+      const field = inp.dataset.field;
+      if (field === 'weight') {
+        prizes[index][field] = Math.max(0, Number(inp.value) || 0);
+      } else {
+        prizes[index][field] = inp.value.trim();
+      }
+    });
+  });
+
+  prizes.forEach((p, i) => {
+    p.color = COLORS[i % COLORS.length];
+  });
+
+  if (db && isFirebaseReady) {
+    db.ref('prizes').set(prizes).then(() => {
+      showToast('奖品已同步到云端');
+    }).catch(err => {
+      showToast('同步失败：' + err.message);
+    });
+  } else {
+    localStorage.setItem('diamond_lottery_prizes', JSON.stringify(prizes));
+    showToast('已保存到本地（未配置云端）');
+  }
+  drawWheel();
+  renderSidePanel();
+}
+
+/* 名单 */
+function renderParticipantTable() {
+  const tbody = document.getElementById('participantTable');
+  const list = Object.values(participants);
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-tip">暂无参与者</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(p => `
+    <tr>
+      <td>${escapeHtml(p.id)}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${p.joinTime || ''}</td>
+      <td>${(p.spinCount || 0) >= settings.maxSpins ? '已抽完' : `已抽 ${p.spinCount || 0} 次`}</td>
+    </tr>
+  `).join('');
+}
+
+function clearParticipants() {
+  if (!confirm('确定清空所有抽奖名单？此操作会同步到云端。')) return;
+  if (db && isFirebaseReady) {
+    db.ref('participants').set(null);
+  } else {
+    participants = {};
+    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+  }
+  renderParticipantTable();
+  showToast('名单已清空');
+}
+
+function exportParticipants() {
+  const list = Object.values(participants);
+  if (list.length === 0) {
+    showToast('没有可导出的数据');
+    return;
+  }
+  let csv = '工号,姓名,加入时间,已抽次数\n';
+  list.forEach(p => {
+    csv += `${p.id},${p.name},${p.joinTime || ''},${p.spinCount || 0}\n`;
+  });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `抽奖名单_${new Date().toLocaleDateString()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* 中奖记录 */
+function renderWinnerTable() {
+  const tbody = document.getElementById('winnerTable');
+  if (winners.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-tip">暂无记录</td></tr>';
+    return;
+  }
+  tbody.innerHTML = winners.map(w => `
+    <tr>
+      <td>${escapeHtml(w.id)}</td>
+      <td>${escapeHtml(w.name)}</td>
+      <td>${escapeHtml(w.prizeName)}</td>
+      <td>${escapeHtml(w.prizeAmount || '-')}</td>
+      <td>${w.time || ''}</td>
+    </tr>
+  `).join('');
+}
+
+function clearWinners() {
+  if (!confirm('确定清空中奖记录？此操作会同步到云端。')) return;
+  if (db && isFirebaseReady) {
+    db.ref('winners').set(null);
+  } else {
+    winners = [];
+    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+  }
+  renderWinnerTable();
+  renderSidePanel();
+  showToast('中奖记录已清空');
+}
+
+/* 设置 */
+function loadSettingsForm() {
+  document.getElementById('settingPassword').value = settings.password || '';
+  document.getElementById('settingMaxSpins').value = settings.maxSpins || 1;
+  document.getElementById('settingAllowRespin').checked = settings.allowRespin !== false;
+}
+
+function saveSettings() {
+  const pwd = document.getElementById('settingPassword').value.trim();
+  const max = Number(document.getElementById('settingMaxSpins').value) || 1;
+  settings.password = pwd || 'admin123';
+  settings.maxSpins = Math.max(1, Math.min(99, max));
+  settings.allowRespin = document.getElementById('settingAllowRespin').checked;
+
+  if (db && isFirebaseReady) {
+    db.ref('settings').set(settings).then(() => {
+      showToast('设置已同步到云端');
+    });
+  } else {
+    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    showToast('已保存到本地');
+  }
+}
+
+function resetAllData() {
+  if (!confirm('确定重置全部数据（奖品、名单、记录）？此操作不可恢复！')) return;
+  if (!confirm('再次确认：真的要全部清空吗？')) return;
+
+  if (db && isFirebaseReady) {
+    db.ref('/').set({
+      prizes: DEFAULT_PRIZES,
+      participants: null,
+      winners: null,
+      settings: DEFAULT_SETTINGS
+    }).then(() => showToast('已重置为初始状态'));
+  } else {
+    prizes = [...DEFAULT_PRIZES];
+    participants = {};
+    winners = [];
+    settings = {...DEFAULT_SETTINGS};
+    localStorage.removeItem('diamond_lottery_prizes');
+    localStorage.removeItem('diamond_lottery_participants');
+    localStorage.removeItem('diamond_lottery_winners');
+    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    renderAdminPrizes();
+    renderParticipantTable();
+    renderWinnerTable();
+    showToast('已重置为初始状态');
+  }
+}
+
+/* ==================== 工具 ==================== */
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('passwordModal').classList.contains('show')) {
+      verifyAdmin();
+    } else if (document.getElementById('entryPage').style.display !== 'none') {
+      joinLottery();
+    }
+  }
+});
+
+// 启动
+initFirebase();
+</script>
+</body>
+</html>
