@@ -484,13 +484,15 @@
     position: fixed;
     inset: 0;
     background: rgba(5,15,40,0.85);
-    z-index: 1000;
+    z-index: 9999;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(6px);
   }
 
-  .modal-overlay.show { display: flex; }
+  .modal-overlay.show {
+    display: flex;
+  }
 
   .modal {
     background: linear-gradient(160deg, #1a3a6e 0%, #0a1f44 100%);
@@ -799,12 +801,12 @@
   <div id="joinCard" class="entry-card">
     <h2>参与抽奖</h2>
     <div class="form-group">
-      <label>工号 / ID</label>
-      <input type="text" id="inputId" placeholder="请输入工号" maxlength="30" autocomplete="off">
+      <label>宠爱ID</label>
+      <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>姓名</label>
-      <input type="text" id="inputName" placeholder="请输入姓名" maxlength="20" autocomplete="off">
+      <label>星际会员账号</label>
+      <input type="text" id="inputName" placeholder="请输入星际会员账号" maxlength="30" autocomplete="off">
     </div>
     <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
@@ -906,14 +908,17 @@
   </div>
 
   <div id="tab-participants" class="tab-content">
-    <div style="margin-bottom:12px; display:flex; gap:10px;">
+    <div style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
       <button class="btn btn-secondary btn-sm" onclick="exportParticipants()">导出名单</button>
-      <button class="btn btn-danger btn-sm" onclick="clearParticipants()">清空名单</button>
+      <input type="datetime-local" id="clearPartFrom" style="width:auto;">
+      <span style="font-size:12px;color:rgba(168,213,255,0.6);">至</span>
+      <input type="datetime-local" id="clearPartTo" style="width:auto;">
+      <button class="btn btn-danger btn-sm" onclick="clearParticipants()">按时段清除名单</button>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>工号</th><th>姓名</th><th>加入时间</th><th>状态</th></tr>
+          <tr><th>宠爱ID</th><th>星际会员账号</th><th>加入时间</th><th>今日剩余</th></tr>
         </thead>
         <tbody id="participantTable"></tbody>
       </table>
@@ -921,13 +926,21 @@
   </div>
 
   <div id="tab-winners" class="tab-content">
-    <div style="margin-bottom:12px;">
-      <button class="btn btn-danger btn-sm" onclick="clearWinners()">清空中奖记录</button>
+    <div style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-secondary btn-sm" onclick="exportWinners()">导出中奖记录</button>
+      <input type="datetime-local" id="clearWinFrom" style="width:auto;">
+      <span style="font-size:12px;color:rgba(168,213,255,0.6);">至</span>
+      <input type="datetime-local" id="clearWinTo" style="width:auto;">
+      <button class="btn btn-danger btn-sm" onclick="clearWinners()">按时段清除中奖</button>
+      <input type="datetime-local" id="clearChatFrom" style="width:auto;">
+      <span style="font-size:12px;color:rgba(168,213,255,0.6);">至</span>
+      <input type="datetime-local" id="clearChatTo" style="width:auto;">
+      <button class="btn btn-danger btn-sm" onclick="clearChat()">按时段清除聊天</button>
     </div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>工号</th><th>姓名</th><th>奖品</th><th>金额</th><th>时间</th></tr>
+          <tr><th>宠爱ID</th><th>星际会员账号</th><th>奖品</th><th>金额</th><th>时间</th></tr>
         </thead>
         <tbody id="winnerTable"></tbody>
       </table>
@@ -941,14 +954,14 @@
         <input type="text" id="settingPassword" placeholder="设置新密码">
       </div>
       <div class="form-group">
-        <label>每人可抽次数</label>
+        <label>默认每人可抽次数</label>
         <input type="number" id="settingMaxSpins" min="1" max="99" value="1">
+        <p style="font-size:12px; color:rgba(168,213,255,0.55); margin-top:6px;">未单独设置的人，每天按此次数计算。午夜 24:00 重置。</p>
       </div>
       <div class="form-group">
-        <label>
-          <input type="checkbox" id="settingAllowRespin" style="width:auto; margin-right:8px;">
-          允许已抽过的人重新进入（但不额外增加次数）
-        </label>
+        <label>批量设置指定宠爱ID次数</label>
+        <textarea id="settingQuotaText" rows="5" placeholder="每行一个：宠爱ID 次数&#10;例如：&#10;12345678 10&#10;87654321 3" style="width:100%; min-height:90px; padding:10px; border-radius:8px; border:1px solid rgba(168,213,255,0.3); background:rgba(10,31,68,0.5); color:#fff; font-size:13px;"></textarea>
+        <p style="font-size:12px; color:rgba(168,213,255,0.55); margin-top:6px;">格式：8位宠爱ID + 空格或逗号 + 次数。保存设置后生效。</p>
       </div>
 
       <hr style="border:none; border-top:1px solid rgba(168,213,255,0.15); margin:20px 0;">
@@ -990,14 +1003,14 @@
 </div>
 
 <!-- 中奖结果弹窗 -->
-<div class="modal-overlay" id="resultModal">
+<div class="modal-overlay" id="resultModal" onclick="if(event.target===this) closeResultModal()">
   <div class="modal win-modal" id="resultModalContent">
     <h2 id="resultTitle">🎉 恭喜中奖！</h2>
     <img id="resultImg" class="prize-img" src="" alt="" style="display:none;">
     <div class="prize-title" id="resultPrizeName"></div>
     <div class="prize-desc" id="resultPrizeDesc"></div>
     <div class="prize-amount" id="resultPrizeAmount"></div>
-    <button class="btn btn-primary" onclick="closeResultModal()">确定</button>
+    <button type="button" class="btn btn-primary" id="resultConfirmBtn">确定</button>
   </div>
 </div>
 
@@ -1034,7 +1047,8 @@ const DEFAULT_SETTINGS = {
   password: 'admin123',
   maxSpins: 1,
   allowRespin: true,
-  openTime: ''   // 空字符串 = 立即开放；有值则为 ISO 时间，例如 "2026-08-20T15:00"
+  openTime: '',
+  customQuota: {}  // { "12345678": 10 }
 };
 
 const COLORS = ['#e63946','#f4a261','#e9c46a','#2a9d8f','#457b9d','#9b5de5','#00bbf9','#00f5d4','#fee440','#f15bb5'];
@@ -1112,6 +1126,11 @@ function initFirebase() {
         renderParticipantTable();
       }
       updateEntryUI();
+      // 首次拿到名单后尝试恢复登录
+      if (!window._sessionTried) {
+        window._sessionTried = true;
+        tryRestoreSession();
+      }
     });
 
     db.ref('winners').on('value', (snap) => {
@@ -1171,7 +1190,63 @@ function loadLocalFallback() {
     winners = [];
     settings = {...DEFAULT_SETTINGS};
   }
-  setTimeout(updateEntryUI, 50);
+  setTimeout(() => {
+    updateEntryUI();
+    tryRestoreSession();
+  }, 50);
+}
+
+/* ==================== 每日次数逻辑 ==================== */
+function todayStr() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function getQuota(id) {
+  const custom = (settings.customQuota || {})[id];
+  if (custom && Number(custom) > 0) return Number(custom);
+  return Number(settings.maxSpins) || 1;
+}
+
+function getTodaySpins(user) {
+  if (!user) return 0;
+  if ((user.lastDrawDate || '') === todayStr()) return Number(user.todaySpins || 0);
+  return 0;
+}
+
+function getRemaining(user) {
+  if (!user) return getQuota(user && user.id);
+  return Math.max(0, getQuota(user.id) - getTodaySpins(user));
+}
+
+function parseLooseDate(str) {
+  if (!str) return null;
+  // ISO
+  const iso = Date.parse(str);
+  if (!isNaN(iso)) return iso;
+  // 2026/9/2 14:15:04 或 2026/9/2 下午12:41:50
+  try {
+    let s = String(str).trim();
+    let afternoon = /下午/.test(s);
+    s = s.replace(/上午|下午/g, '').replace(/\s+/g, ' ').trim();
+    const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (!m) return null;
+    let h = Number(m[4] || 0);
+    if (afternoon && h < 12) h += 12;
+    return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), h, Number(m[5]||0), Number(m[6]||0)).getTime();
+  } catch (e) {
+    return null;
+  }
+}
+
+function inRange(ts, fromVal, toVal) {
+  if (ts == null) return false;
+  const from = fromVal ? new Date(fromVal).getTime() : null;
+  const to = toVal ? new Date(toVal).getTime() : null;
+  if (from && ts < from) return false;
+  if (to && ts > to) return false;
+  return true;
 }
 
 /* ==================== 入口 ==================== */
@@ -1185,24 +1260,30 @@ function joinLottery() {
   const id = document.getElementById('inputId').value.trim();
   const name = document.getElementById('inputName').value.trim();
 
-  if (!id || !name) {
-    showToast('请填写工号和姓名');
+  if (!/^\d{8}$/.test(id)) {
+    showToast('宠爱ID必须是8位纯数字');
+    return;
+  }
+  if (!name) {
+    showToast('请填写星际会员账号');
     return;
   }
 
   let user = participants[id];
   if (user) {
-    if (!settings.allowRespin && (user.spinCount || 0) >= settings.maxSpins) {
-      showToast('您已参与过抽奖');
+    user.name = name;
+    if (getRemaining(user) <= 0) {
+      showToast('您今日已领取过转盘');
       return;
     }
-    user.name = name; // 更新姓名
   } else {
     user = {
       id,
       name,
-      joinTime: new Date().toLocaleString('zh-CN'),
-      spinCount: 0
+      joinTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+      spinCount: 0,
+      todaySpins: 0,
+      lastDrawDate: todayStr()
     };
   }
 
@@ -1215,6 +1296,14 @@ function joinLottery() {
   }
 
   currentUser = user;
+  // 保存登录状态（30分钟有效）
+  try {
+    localStorage.setItem('diamond_session', JSON.stringify({
+      user: user,
+      expire: Date.now() + 30 * 60 * 1000
+    }));
+  } catch (e) {}
+
   document.getElementById('currentUserDisplay').textContent = `${name}（${id}）`;
   showPage('lottery');
   renderSidePanel();
@@ -1224,9 +1313,47 @@ function joinLottery() {
 
 function backToEntry() {
   currentUser = null;
+  try { localStorage.removeItem('diamond_session'); } catch (e) {}
   document.getElementById('inputId').value = '';
   document.getElementById('inputName').value = '';
   showPage('entry');
+}
+
+/** 尝试从本地恢复登录（30分钟内有效） */
+function tryRestoreSession() {
+  try {
+    const raw = localStorage.getItem('diamond_session');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.user || !data.expire) return false;
+    if (Date.now() > data.expire) {
+      localStorage.removeItem('diamond_session');
+      return false;
+    }
+    // 刷新过期时间
+    data.expire = Date.now() + 30 * 60 * 1000;
+    localStorage.setItem('diamond_session', JSON.stringify(data));
+
+    currentUser = data.user;
+    if (participants[currentUser.id]) {
+      currentUser = participants[currentUser.id];
+    }
+    if (getRemaining(currentUser) <= 0) {
+      currentUser = null;
+      localStorage.removeItem('diamond_session');
+      showToast('您今日已领取过转盘');
+      showPage('entry');
+      return false;
+    }
+    document.getElementById('currentUserDisplay').textContent = `${currentUser.name}（${currentUser.id}）`;
+    showPage('lottery');
+    renderSidePanel();
+    drawWheel();
+    updateSpinButton();
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function showPage(page) {
@@ -1323,8 +1450,8 @@ function getWeightedPrize() {
 
 function startSpin() {
   if (isSpinning || !currentUser) return;
-  if ((currentUser.spinCount || 0) >= settings.maxSpins) {
-    showToast('您的抽奖次数已用完');
+  if (getRemaining(currentUser) <= 0) {
+    showToast('您今日已领取过转盘');
     return;
   }
   if (prizes.length === 0) {
@@ -1370,12 +1497,21 @@ function startSpin() {
 
 function finishSpin(prize) {
   isSpinning = false;
+  const day = todayStr();
+  if ((currentUser.lastDrawDate || '') !== day) {
+    currentUser.todaySpins = 0;
+    currentUser.lastDrawDate = day;
+  }
+  currentUser.todaySpins = (currentUser.todaySpins || 0) + 1;
   currentUser.spinCount = (currentUser.spinCount || 0) + 1;
+  currentUser.lastDrawDate = day;
 
   // 更新参与者
   if (db && isFirebaseReady) {
     db.ref('participants/' + currentUser.id).update({
       spinCount: currentUser.spinCount,
+      todaySpins: currentUser.todaySpins,
+      lastDrawDate: currentUser.lastDrawDate,
       name: currentUser.name
     });
   } else {
@@ -1390,7 +1526,7 @@ function finishSpin(prize) {
     name: currentUser.name,
     prizeName: prize.name,
     prizeAmount: prize.amount || '',
-    time: new Date().toLocaleString('zh-CN'),
+    time: new Date().toLocaleString('zh-CN', { hour12: false }),
     isWin
   };
 
@@ -1421,10 +1557,10 @@ function updateSpinButton() {
     currentUser = participants[currentUser.id];
   }
 
-  const left = settings.maxSpins - (currentUser.spinCount || 0);
+  const left = getRemaining(currentUser);
   if (left <= 0) {
     btn.disabled = true;
-    status.textContent = '您的抽奖次数已用完';
+    status.textContent = '您今日已领取过转盘';
   } else {
     btn.disabled = false;
     status.textContent = `剩余 ${left} 次机会`;
@@ -1446,22 +1582,48 @@ function showResult(prize) {
     img.style.display = 'none';
   }
 
-  document.getElementById('resultModal').classList.add('show');
+  const modal = document.getElementById('resultModal');
+  modal.classList.add('show');
 }
 
 function closeResultModal() {
   const modal = document.getElementById('resultModal');
-  if (modal) {
-    modal.classList.remove('show');
-    modal.style.display = 'none';
-    // 强制下一帧恢复，避免部分手机浏览器卡住
-    setTimeout(() => {
-      modal.style.display = '';
-    }, 50);
-  }
+  if (!modal) return;
+
+  modal.classList.remove('show');
+
+  // 强制回到抽奖页
+  document.getElementById('entryPage').style.display = 'none';
+  document.getElementById('adminPage').style.display = 'none';
+  document.getElementById('lotteryPage').style.display = 'block';
+
   renderSidePanel();
   updateSpinButton();
+  try { drawWheel(); } catch (e) {}
 }
+
+// 绑定确定按钮（避免部分手机 onclick 失效）
+document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('resultConfirmBtn');
+  if (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeResultModal();
+    });
+  }
+});
+// 如果脚本在 DOM 之后执行，直接绑定
+(function () {
+  const btn = document.getElementById('resultConfirmBtn');
+  if (btn) {
+    btn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeResultModal();
+    };
+  }
+})();
 
 /* ==================== 侧边栏渲染 ==================== */
 function renderSidePanel() {
@@ -1650,27 +1812,48 @@ function renderParticipantTable() {
     tbody.innerHTML = '<tr><td colspan="4" class="empty-tip">暂无参与者</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map(p => `
+  tbody.innerHTML = list.map(p => {
+    const left = getRemaining(p);
+    const used = getTodaySpins(p);
+    const quota = getQuota(p.id);
+    const status = left <= 0 ? '今日已领完' : `今日 ${used}/${quota}，剩 ${left} 次`;
+    return `
     <tr>
       <td>${escapeHtml(p.id)}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${p.joinTime || ''}</td>
-      <td>${(p.spinCount || 0) >= settings.maxSpins ? '已抽完' : `已抽 ${p.spinCount || 0} 次`}</td>
-    </tr>
-  `).join('');
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
 }
 
 function clearParticipants() {
-  if (!confirm('确定清空所有抽奖名单？此操作会同步到云端。')) return;
-  if (db && isFirebaseReady) {
-    db.ref('participants').set(null);
+  const fromVal = document.getElementById('clearPartFrom') && document.getElementById('clearPartFrom').value;
+  const toVal = document.getElementById('clearPartTo') && document.getElementById('clearPartTo').value;
+  if (!fromVal && !toVal) {
+    if (!confirm('未选时段将清空全部名单，确定吗？')) return;
   } else {
-    participants = {};
+    if (!confirm('确定清除所选时段内的名单？')) return;
+  }
+
+  const next = {};
+  if (fromVal || toVal) {
+    Object.keys(participants).forEach(id => {
+      const p = participants[id];
+      const ts = parseLooseDate(p.joinTime);
+      if (!inRange(ts, fromVal, toVal)) next[id] = p;
+    });
+  }
+
+  if (db && isFirebaseReady) {
+    db.ref('participants').set(Object.keys(next).length ? next : null);
+  } else {
+    participants = next;
     localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
   }
   renderParticipantTable();
   updateEntryUI();
-  showToast('参与人数已重置');
+  showToast('名单已按条件清除');
 }
 
 function exportParticipants() {
@@ -1679,9 +1862,9 @@ function exportParticipants() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '工号,姓名,加入时间,已抽次数\n';
+  let csv = '宠爱ID,星际会员账号,加入时间,今日已抽,配额,剩余\n';
   list.forEach(p => {
-    csv += `${p.id},${p.name},${p.joinTime || ''},${p.spinCount || 0}\n`;
+    csv += `${p.id},${p.name},${p.joinTime || ''},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1711,23 +1894,87 @@ function renderWinnerTable() {
 }
 
 function clearWinners() {
-  if (!confirm('确定清空中奖记录？此操作会同步到云端。')) return;
-  if (db && isFirebaseReady) {
-    db.ref('winners').set(null);
+  const fromVal = document.getElementById('clearWinFrom') && document.getElementById('clearWinFrom').value;
+  const toVal = document.getElementById('clearWinTo') && document.getElementById('clearWinTo').value;
+  if (!fromVal && !toVal) {
+    if (!confirm('未选时段将清空全部中奖记录，确定吗？')) return;
   } else {
-    winners = [];
+    if (!confirm('确定清除所选时段内的中奖记录？')) return;
+  }
+
+  let next = [];
+  if (fromVal || toVal) {
+    next = winners.filter(w => !inRange(parseLooseDate(w.time), fromVal, toVal));
+  }
+
+  if (db && isFirebaseReady) {
+    db.ref('winners').set(next.length ? next : null);
+  } else {
+    winners = next;
     localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
   }
   renderWinnerTable();
   renderSidePanel();
-  showToast('中奖记录已清空');
+  showToast('中奖记录已按条件清除');
+}
+
+function exportWinners() {
+  if (!winners.length) {
+    showToast('没有可导出的数据');
+    return;
+  }
+  let csv = '宠爱ID,星际会员账号,奖品,金额,时间\n';
+  winners.forEach(w => {
+    csv += `${w.id},${w.name},${w.prizeName || ''},${w.prizeAmount || ''},${w.time || ''}\n`;
+  });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `中奖记录_${new Date().toLocaleDateString()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearChat() {
+  const fromVal = document.getElementById('clearChatFrom') && document.getElementById('clearChatFrom').value;
+  const toVal = document.getElementById('clearChatTo') && document.getElementById('clearChatTo').value;
+  if (!fromVal && !toVal) {
+    if (!confirm('未选时段将清空全部聊天记录，确定吗？')) return;
+  } else {
+    if (!confirm('确定清除所选时段内的聊天记录？')) return;
+  }
+
+  if (!db || !isFirebaseReady) {
+    showToast('云端未连接');
+    return;
+  }
+
+  if (!fromVal && !toVal) {
+    db.ref('chat').set(null).then(() => showToast('聊天记录已清空'));
+    return;
+  }
+
+  db.ref('chat').once('value').then(snap => {
+    const val = snap.val() || {};
+    const keep = {};
+    Object.keys(val).forEach(key => {
+      const m = val[key];
+      const ts = parseLooseDate(m.time);
+      if (!inRange(ts, fromVal, toVal)) keep[key] = m;
+    });
+    return db.ref('chat').set(Object.keys(keep).length ? keep : null);
+  }).then(() => showToast('聊天记录已按条件清除'));
 }
 
 /* 设置 */
 function loadSettingsForm() {
   document.getElementById('settingPassword').value = settings.password || '';
   document.getElementById('settingMaxSpins').value = settings.maxSpins || 1;
-  document.getElementById('settingAllowRespin').checked = settings.allowRespin !== false;
+  const quota = settings.customQuota || {};
+  const lines = Object.keys(quota).map(id => `${id} ${quota[id]}`);
+  const quotaEl = document.getElementById('settingQuotaText');
+  if (quotaEl) quotaEl.value = lines.join('\n');
 
   // 处理开放时间回填（datetime-local 需要本地格式 YYYY-MM-DDTHH:mm）
   const ot = settings.openTime || '';
@@ -1754,7 +2001,17 @@ function saveSettings() {
   const max = Number(document.getElementById('settingMaxSpins').value) || 1;
   settings.password = pwd || 'admin123';
   settings.maxSpins = Math.max(1, Math.min(99, max));
-  settings.allowRespin = document.getElementById('settingAllowRespin').checked;
+
+  const quotaText = (document.getElementById('settingQuotaText') && document.getElementById('settingQuotaText').value) || '';
+  const customQuota = {};
+  quotaText.split(/\n/).forEach(line => {
+    const parts = line.trim().split(/[\s,，]+/);
+    if (parts.length >= 2 && /^\d{8}$/.test(parts[0])) {
+      const n = Math.max(1, Math.min(99, Number(parts[1]) || 1));
+      customQuota[parts[0]] = n;
+    }
+  });
+  settings.customQuota = customQuota;
 
   const localVal = document.getElementById('settingOpenTime').value;
   if (localVal) {
@@ -1862,7 +2119,7 @@ function renderEntryParticipants() {
   // 按加入时间倒序，最新在前
   list.sort((a, b) => (b.joinTime || '').localeCompare(a.joinTime || ''));
   listEl.innerHTML = list.map(p => {
-    const status = (p.spinCount || 0) >= (settings.maxSpins || 1) ? ' · 已抽' : '';
+    const status = getRemaining(p) <= 0 ? ' · 已抽完' : ` · 剩${getRemaining(p)}次`;
     return `<div style="display:flex; justify-content:space-between; padding:2px 0;">
       <span>${escapeHtml(p.name)} <span style="color:rgba(168,213,255,0.5);font-size:12px;">(${escapeHtml(p.id)})</span></span>
       <span style="color:rgba(168,213,255,0.45);font-size:12px;">${status}</span>
@@ -1909,10 +2166,8 @@ function renderChat(msgs) {
   box.innerHTML = msgs.map(m => {
     const name = escapeHtml(m.name || '匿名');
     const text = escapeHtml(m.text || '');
-    const time = (m.time || '').slice(11, 16); // 取 HH:mm
     return `<div style="margin-bottom:6px;">
       <span style="color:var(--gold);font-weight:600;">${name}</span>
-      <span style="color:rgba(168,213,255,0.4);font-size:11px;margin-left:6px;">${time}</span>
       <div style="color:rgba(255,255,255,0.9);">${text}</div>
     </div>`;
   }).join('');
@@ -1971,6 +2226,13 @@ document.addEventListener('keydown', e => {
     } else if (document.getElementById('entryPage').style.display !== 'none') {
       joinLottery();
     }
+  }
+});
+
+// 宠爱ID 只允许数字
+document.addEventListener('input', function (e) {
+  if (e.target && e.target.id === 'inputId') {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8);
   }
 });
 
