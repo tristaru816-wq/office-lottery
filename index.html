@@ -1206,6 +1206,7 @@
       <span id="partSearchCount" style="font-size:13px;color:#A94064;"></span>
       <button class="btn btn-secondary btn-sm" onclick="exportParticipants()">导出名单</button>
       <button class="btn btn-danger btn-sm" onclick="deleteSelectedParticipants()">删除勾选名单</button>
+      <span style="font-size:12px;color:#A94064;">删除后，该宠爱ID和账号可以重新登录</span>
       <input type="datetime-local" id="clearPartFrom" style="width:auto;">
       <span style="font-size:12px;color:#A94064;">至</span>
       <input type="datetime-local" id="clearPartTo" style="width:auto;">
@@ -3249,12 +3250,14 @@ function clearParticipants() {
     });
   }
 
+  const removedIds = Object.keys(participants).filter(id => !next[id]);
+  participants = next;
   if (db && isFirebaseReady) {
     db.ref('participants').set(Object.keys(next).length ? next : null);
   } else {
-    participants = next;
     localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
   }
+  if (removedIds.length) releaseMembers(removedIds);
   renderParticipantTable();
   updateEntryUI();
   showToast('名单已按条件清除');
@@ -3339,19 +3342,33 @@ function deleteSelectedParticipants() {
     showToast('请先勾选要删除的名单');
     return;
   }
-  if (!confirm(`确定删除已勾选的 ${ids.length} 人？`)) return;
+  if (!confirm(`确定删除已勾选的 ${ids.length} 人？\n会同时删除抽奖名单和中奖记录，之后该宠爱ID和账号可以重新登录。`)) return;
+  releaseMembers(ids);
+  showToast('已删除，该会员可以重新登录');
+}
 
+function releaseMembers(ids) {
+  const idSet = {};
+  ids.forEach(id => { idSet[String(id)] = true; });
+  const removedWinKeys = [];
+  winners.forEach(w => {
+    if (idSet[String(w.id)] && w._key) removedWinKeys.push(w._key);
+  });
   ids.forEach(id => { delete participants[id]; });
+  winners = winners.filter(w => !idSet[String(w.id)]);
   if (db && isFirebaseReady) {
     const updates = {};
     ids.forEach(id => { updates['participants/' + id] = null; });
+    removedWinKeys.forEach(k => { updates['winners/' + k] = null; });
     db.ref().update(updates);
   } else {
     localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
   }
   renderParticipantTable();
+  renderWinnerTable();
+  renderSidePanel();
   updateEntryUI();
-  showToast('已删除勾选名单');
 }
 
 function deleteSelectedWinners() {
