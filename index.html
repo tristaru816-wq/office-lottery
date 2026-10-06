@@ -1558,7 +1558,8 @@ function initFirebase() {
     });
 
     db.ref('participants').on('value', (snap) => {
-      participants = snap.val() || {};
+      const val = snap.val() || {};
+      participants = normalizeParticipants(val);
       if (document.getElementById('lotteryPage').style.display !== 'none') {
         renderSidePanel();
         updateSpinButton();
@@ -1648,11 +1649,22 @@ function initFirebase() {
   }
 }
 
+function normalizeParticipants(raw) {
+  const out = {};
+  Object.keys(raw || {}).forEach(key => {
+    const p = raw[key] && typeof raw[key] === 'object' ? raw[key] : {};
+    if (!p.id || p.id === 'undefined') p.id = key;
+    p._key = key;
+    out[key] = p;
+  });
+  return out;
+}
+
 function loadLocalFallback() {
   // 没有配置时用 localStorage，方便先预览
   try {
     prizes = JSON.parse(localStorage.getItem('diamond_lottery_prizes')) || [...DEFAULT_PRIZES];
-    participants = JSON.parse(localStorage.getItem('diamond_lottery_participants')) || {};
+    participants = normalizeParticipants(JSON.parse(localStorage.getItem('diamond_lottery_participants')) || {});
     winners = JSON.parse(localStorage.getItem('diamond_lottery_winners')) || [];
     settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem('diamond_lottery_settings')) || {});
   } catch (e) {
@@ -1755,7 +1767,7 @@ function joinLottery() {
   }
 
   let user = participants[id];
-  const sameName = Object.values(participants).find(p => p && String(p.name || '').trim() === name && String(p.id) !== id);
+  const sameName = Object.values(participants).find(p => p && String(p.name || '').trim() === name && String(p._key || p.id) !== id);
   if ((user && String(user.name || '').trim() !== name) || sameName) {
     showToast('宠爱ID或账号错误，请联系宠爱管理确认');
     return;
@@ -3216,7 +3228,7 @@ function renderParticipantTable() {
     const todayStars = Object.keys(bag.today || {}).length;
     return `
     <tr>
-      <td><input type="checkbox" class="chk-part" value="${escapeHtml(p.id)}"></td>
+      <td><input type="checkbox" class="chk-part" value="${escapeHtml(p._key || p.id)}"></td>
       <td>${escapeHtml(p.id)}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.loginTime || p.joinTime || '')}</td>
