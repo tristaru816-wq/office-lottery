@@ -1030,7 +1030,7 @@
   <div class="logo-area">
     <div class="logo-icon">💎</div>
     <h1>幸运钻石转盘</h1>
-    <p>办公室专属 · 云端实时同步版</p>
+    <p>办公室专属 · <span id="deptLabel">星际</span></p>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
   </div>
 
@@ -1053,8 +1053,8 @@
       <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>星际会员账号</label>
-      <input type="text" id="inputName" placeholder="请输入星际会员账号" maxlength="30" autocomplete="off">
+      <label>平台账号</label>
+      <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off">
     </div>
     <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
@@ -1167,9 +1167,10 @@
 <!-- ========== 管理后台 ========== -->
 <div id="adminPage" class="container">
   <div class="admin-header">
-    <h1>⚙️ 主办人后台（云端同步）</h1>
+    <h1>⚙️ 主办人后台 · <span id="deptLabelAdmin">星际</span></h1>
     <button class="btn btn-secondary btn-sm" onclick="exitAdmin()">返回入口</button>
   </div>
+  <div id="deptLinks" style="font-size:13px;color:#A94064;line-height:1.9;margin:-8px 0 16px;"></div>
 
   <div class="admin-tabs">
     <button class="tab-btn active" onclick="switchTab('home')">会员查询</button>
@@ -1217,7 +1218,7 @@
         <thead>
           <tr>
             <th style="width:42px;"><input type="checkbox" id="checkAllPart" onchange="toggleAllPart(this.checked)"></th>
-            <th>宠爱ID</th><th>星际会员账号</th><th>登入时间</th><th>本次抽奖时间</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
+            <th>宠爱ID</th><th>平台账号</th><th>登入时间</th><th>本次抽奖时间</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
           </tr>
         </thead>
         <tbody id="participantTable"></tbody>
@@ -1242,7 +1243,7 @@
           <thead>
             <tr>
               <th style="width:42px;"><input type="checkbox" id="checkAllWin" onchange="toggleAllWin(this.checked)"></th>
-              <th>宠爱ID</th><th>星际会员账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间</th><th>上次抽奖时间</th>
+              <th>宠爱ID</th><th>平台账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间</th><th>上次抽奖时间</th>
             </tr>
           </thead>
           <tbody id="winnerTable"></tbody>
@@ -1262,7 +1263,7 @@
         <thead>
           <tr>
             <th style="width:42px;"><input type="checkbox" id="checkAllCheckin" onchange="toggleAllCheckin(this.checked)"></th>
-            <th>宠爱ID</th><th>星际会员账号</th><th>签到日期</th><th>签到时间</th><th>连续天数</th><th>本次奖励</th>
+            <th>宠爱ID</th><th>平台账号</th><th>签到日期</th><th>签到时间</th><th>连续天数</th><th>本次奖励</th>
           </tr>
         </thead>
         <tbody id="checkinTable"></tbody>
@@ -1505,6 +1506,50 @@ let isSpinning = false;
 let wheelRotation = 0;
 let isFirebaseReady = false;
 
+const DEPT_LIST = [
+  { key: 'xingji', name: '星际', root: true },
+  { key: 'xingchen', name: '星辰' },
+  { key: 'xingyao', name: '星耀' },
+  { key: 'juese', name: '绝色' }
+];
+
+function currentDept() {
+  const raw = (new URLSearchParams(location.search).get('d') || '').trim();
+  return DEPT_LIST.find(d => d.key === raw || d.name === raw) || DEPT_LIST[0];
+}
+
+function deptPrefix() {
+  const d = currentDept();
+  return d.root ? '' : ('depts/' + d.key);
+}
+
+function storeKey(name) {
+  const d = currentDept();
+  return d.root ? name : (name + '_' + d.key);
+}
+
+function deptUrl(d) {
+  const base = location.origin + location.pathname;
+  return d.root ? base : (base + '?d=' + encodeURIComponent(d.name));
+}
+
+function paintDept() {
+  const d = currentDept();
+  const label = document.getElementById('deptLabel');
+  const admin = document.getElementById('deptLabelAdmin');
+  if (label) label.textContent = d.name;
+  if (admin) admin.textContent = d.name;
+  document.title = '幸运钻石转盘 · ' + d.name;
+  const box = document.getElementById('deptLinks');
+  if (box) {
+    box.innerHTML = DEPT_LIST.map(item => {
+      const url = deptUrl(item);
+      const mark = item.key === d.key ? '（当前）' : '';
+      return `<div>${item.name}${mark}：<a href="${url}" style="color:#A94064;">${url}</a></div>`;
+    }).join('');
+  }
+}
+
 /* ==================== Firebase 初始化 ==================== */
 function initFirebase() {
   const statusEl = document.getElementById('syncStatus');
@@ -1522,14 +1567,25 @@ function initFirebase() {
 
   try {
     firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
+    const rawDb = firebase.database();
+    db = {
+      ref: function(path) {
+        if (path == null) path = '/';
+        const p = String(path);
+        if (p.indexOf('.info/') === 0) return rawDb.ref(p);
+        const prefix = deptPrefix();
+        if (!prefix) return rawDb.ref(p);
+        if (p === '/' || p === '') return rawDb.ref(prefix);
+        return rawDb.ref(prefix + '/' + p.replace(/^\//, ''));
+      }
+    };
 
     // 监听连接状态
     const connectedRef = db.ref('.info/connected');
     connectedRef.on('value', (snap) => {
       if (snap.val() === true) {
         statusEl.className = 'sync-status connected';
-        textEl.textContent = '云端已连接 · 实时同步';
+        textEl.textContent = '云端已连接 · ' + currentDept().name;
         isFirebaseReady = true;
       } else {
         statusEl.className = 'sync-status';
@@ -1663,10 +1719,10 @@ function normalizeParticipants(raw) {
 function loadLocalFallback() {
   // 没有配置时用 localStorage，方便先预览
   try {
-    prizes = JSON.parse(localStorage.getItem('diamond_lottery_prizes')) || [...DEFAULT_PRIZES];
-    participants = normalizeParticipants(JSON.parse(localStorage.getItem('diamond_lottery_participants')) || {});
-    winners = JSON.parse(localStorage.getItem('diamond_lottery_winners')) || [];
-    settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem('diamond_lottery_settings')) || {});
+    prizes = JSON.parse(localStorage.getItem(storeKey('diamond_lottery_prizes'))) || [...DEFAULT_PRIZES];
+    participants = normalizeParticipants(JSON.parse(localStorage.getItem(storeKey('diamond_lottery_participants'))) || {});
+    winners = JSON.parse(localStorage.getItem(storeKey('diamond_lottery_winners'))) || [];
+    settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem(storeKey('diamond_lottery_settings'))) || {});
   } catch (e) {
     prizes = [...DEFAULT_PRIZES];
     participants = {};
@@ -1762,7 +1818,7 @@ function joinLottery() {
     return;
   }
   if (!name) {
-    showToast('请填写星际会员账号');
+    showToast('请填写平台账号');
     return;
   }
 
@@ -1794,13 +1850,13 @@ function joinLottery() {
     db.ref('participants/' + id).set(user);
   } else {
     participants[id] = user;
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   }
 
   currentUser = user;
   // 保存登录状态（30分钟有效）
   try {
-    localStorage.setItem('diamond_session', JSON.stringify({
+    localStorage.setItem(storeKey('diamond_session'), JSON.stringify({
       user: user,
       expire: Date.now() + 30 * 60 * 1000
     }));
@@ -1815,7 +1871,7 @@ function joinLottery() {
 
 function backToEntry() {
   currentUser = null;
-  try { localStorage.removeItem('diamond_session'); } catch (e) {}
+  try { localStorage.removeItem(storeKey('diamond_session')); } catch (e) {}
   document.getElementById('inputId').value = '';
   document.getElementById('inputName').value = '';
   showPage('entry');
@@ -1824,24 +1880,24 @@ function backToEntry() {
 /** 尝试从本地恢复登录（30分钟内有效） */
 function tryRestoreSession() {
   try {
-    const raw = localStorage.getItem('diamond_session');
+    const raw = localStorage.getItem(storeKey('diamond_session'));
     if (!raw) return false;
     const data = JSON.parse(raw);
     if (!data || !data.user || !data.expire) return false;
     if (Date.now() > data.expire) {
-      localStorage.removeItem('diamond_session');
+      localStorage.removeItem(storeKey('diamond_session'));
       return false;
     }
     // 刷新过期时间
     data.expire = Date.now() + 30 * 60 * 1000;
-    localStorage.setItem('diamond_session', JSON.stringify(data));
+    localStorage.setItem(storeKey('diamond_session'), JSON.stringify(data));
 
     currentUser = data.user;
     if (participants[currentUser.id]) {
       const saved = participants[currentUser.id];
       if (String(saved.name || '').trim() !== String(currentUser.name || '').trim()) {
         currentUser = null;
-        localStorage.removeItem('diamond_session');
+        localStorage.removeItem(storeKey('diamond_session'));
         showToast('宠爱ID或账号错误，请联系宠爱管理确认');
         showPage('entry');
         return false;
@@ -1850,7 +1906,7 @@ function tryRestoreSession() {
     }
     if (getRemaining(currentUser) <= 0) {
       currentUser = null;
-      localStorage.removeItem('diamond_session');
+      localStorage.removeItem(storeKey('diamond_session'));
       showToast('您今日已领取过转盘');
       showPage('entry');
       return false;
@@ -2026,7 +2082,7 @@ function finishSpin(prize) {
     });
   } else {
     participants[currentUser.id] = currentUser;
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   }
 
   // 记录中奖
@@ -2050,7 +2106,7 @@ function finishSpin(prize) {
   } else {
     winners.unshift(record);
     if (winners.length > 200) winners.length = 200;
-    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
   }
 
   updateSpinButton();
@@ -2250,7 +2306,7 @@ function doCheckin() {
   } else {
     participants[currentUser.id] = currentUser;
     checkins.unshift(Object.assign({ _key: String(Date.now()) }, rec));
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   }
 
   showToast(`签到成功！连续 ${streak} 天，${extraTip}`);
@@ -2324,7 +2380,7 @@ function writeParticipantPatch(id, patch) {
   }
   Object.assign(participants[id], patch);
   if (db && isFirebaseReady) db.ref('participants/' + id).update(patch);
-  else localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+  else localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   if (currentUser && currentUser.id === id) currentUser = participants[id];
 }
 
@@ -2508,7 +2564,7 @@ function saveStarBag(bag) {
     db.ref('participants/' + currentUser.id).update({ name: currentUser.name });
   } else {
     participants[currentUser.id] = currentUser;
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   }
   renderStarPanel();
   renderStarAdmin();
@@ -2545,7 +2601,7 @@ function saveStarsFor(id, bag) {
   if (!participants[id]) return;
   participants[id].stars = bag;
   if (db && isFirebaseReady) db.ref('participants/' + id + '/stars').set(bag);
-  else localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+  else localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   if (currentUser && currentUser.id === id) {
     currentUser.stars = bag;
     renderStarPanel();
@@ -3115,7 +3171,7 @@ function savePrizes() {
       showToast('同步失败：' + err.message);
     });
   } else {
-    localStorage.setItem('diamond_lottery_prizes', JSON.stringify(prizes));
+    localStorage.setItem(storeKey('diamond_lottery_prizes'), JSON.stringify(prizes));
     showToast('已保存到本地（未配置云端）');
   }
   drawWheel();
@@ -3267,7 +3323,7 @@ function clearParticipants() {
   if (db && isFirebaseReady) {
     db.ref('participants').set(Object.keys(next).length ? next : null);
   } else {
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
   }
   if (removedIds.length) releaseMembers(removedIds);
   renderParticipantTable();
@@ -3281,7 +3337,7 @@ function exportParticipants() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,星际会员账号,登入时间,本次抽奖时间,今日已抽,配额,剩余,累计星星,今日集星\n';
+  let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间,今日已抽,配额,剩余,累计星星,今日集星\n';
   list.forEach(p => {
     const bag = starBag(p);
     csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${latestSpinTime(p.id)},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
@@ -3374,8 +3430,8 @@ function releaseMembers(ids) {
     removedWinKeys.forEach(k => { updates['winners/' + k] = null; });
     db.ref().update(updates);
   } else {
-    localStorage.setItem('diamond_lottery_participants', JSON.stringify(participants));
-    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
+    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
   }
   renderParticipantTable();
   renderWinnerTable();
@@ -3397,7 +3453,7 @@ function deleteSelectedWinners() {
     db.ref().update(updates);
   } else {
     winners = winners.filter((w, i) => !keys.includes(w._key || String(i)));
-    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
     renderWinnerTable();
     renderSidePanel();
   }
@@ -3456,7 +3512,7 @@ function exportCheckins() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,星际会员账号,签到日期,连续天数,奖励次数,时间\n';
+  let csv = '宠爱ID,平台账号,签到日期,连续天数,奖励次数,时间\n';
   checkins.forEach(c => {
     csv += `${c.id},${c.name},${c.date || ''},${c.streak || ''},${c.bonus || ''},${c.time || ''}\n`;
   });
@@ -3507,12 +3563,12 @@ function purgeOldRecords() {
     const nextC = checkins.filter(c => !olderThanTwoMonths(c.iso || c.time || c.date));
     if (nextW.length !== winners.length) {
       winners = nextW;
-      localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+      localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
       renderWinnerTable();
     }
     if (nextC.length !== checkins.length) {
       checkins = nextC;
-      try { localStorage.setItem('diamond_lottery_checkins', JSON.stringify(checkins)); } catch (e) {}
+      try { localStorage.setItem(storeKey('diamond_lottery_checkins'), JSON.stringify(checkins)); } catch (e) {}
       renderCheckinTable();
     }
   }
@@ -3536,7 +3592,7 @@ function clearWinners() {
     db.ref('winners').set(next.length ? next : null);
   } else {
     winners = next;
-    localStorage.setItem('diamond_lottery_winners', JSON.stringify(winners));
+    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
   }
   renderWinnerTable();
   renderSidePanel();
@@ -3548,7 +3604,7 @@ function exportWinners() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,星际会员账号,剩余次数,奖品,金额,本次抽奖时间,上次抽奖时间\n';
+  let csv = '宠爱ID,平台账号,剩余次数,奖品,金额,本次抽奖时间,上次抽奖时间\n';
   const prevMap = previousSpinMap();
   winners.forEach(w => {
     const user = participants[w.id];
@@ -3687,7 +3743,7 @@ function saveSettings() {
       updateEntryUI();
     });
   } else {
-    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    localStorage.setItem(storeKey('diamond_lottery_settings'), JSON.stringify(settings));
     showToast('已保存到本地');
     updateEntryUI();
   }
@@ -3702,7 +3758,7 @@ function setOpenNow() {
       updateEntryUI();
     });
   } else {
-    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    localStorage.setItem(storeKey('diamond_lottery_settings'), JSON.stringify(settings));
     showToast('已立即开放抽奖');
     updateEntryUI();
   }
@@ -3788,25 +3844,27 @@ function renderEntryParticipants() {
 }
 
 function resetAllData() {
-  if (!confirm('确定重置全部数据（奖品、名单、记录）？此操作不可恢复！')) return;
+  if (!confirm('确定重置当前部门的奖品、名单和记录？其他部门不会受影响。')) return;
   if (!confirm('再次确认：真的要全部清空吗？')) return;
 
   if (db && isFirebaseReady) {
-    db.ref('/').set({
+    db.ref().update({
       prizes: DEFAULT_PRIZES,
       participants: null,
       winners: null,
+      checkins: null,
+      chat: null,
       settings: DEFAULT_SETTINGS
-    }).then(() => showToast('已重置为初始状态'));
+    }).then(() => showToast('已重置当前部门'));
   } else {
     prizes = [...DEFAULT_PRIZES];
     participants = {};
     winners = [];
     settings = {...DEFAULT_SETTINGS};
-    localStorage.removeItem('diamond_lottery_prizes');
-    localStorage.removeItem('diamond_lottery_participants');
-    localStorage.removeItem('diamond_lottery_winners');
-    localStorage.setItem('diamond_lottery_settings', JSON.stringify(settings));
+    localStorage.removeItem(storeKey('diamond_lottery_prizes'));
+    localStorage.removeItem(storeKey('diamond_lottery_participants'));
+    localStorage.removeItem(storeKey('diamond_lottery_winners'));
+    localStorage.setItem(storeKey('diamond_lottery_settings'), JSON.stringify(settings));
     renderAdminPrizes();
     renderParticipantTable();
     renderWinnerTable();
@@ -3900,6 +3958,7 @@ document.addEventListener('input', function (e) {
 
 // 启动
 initFirebase();
+paintDept();
 
 // 每 30 秒检查一次是否到了开放时间（自动切换界面）
 setInterval(() => {
