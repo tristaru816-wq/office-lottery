@@ -2,26 +2,14 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- ios-tap-13 -->
+<!-- ios-refresh-2142 -->
 <title>幸运钻石转盘 · 云端同步版</title>
 <!-- Firebase SDK (compat 方便单文件使用) -->
-<script>
-document.addEventListener('touchstart', function () {}, { passive: true });
-document.addEventListener('touchend', function (e) {
-  var t = e.target;
-  if (!t || !t.closest) return;
-  var input = t.closest('input, textarea');
-  if (!input) {
-    var group = t.closest('.form-group');
-    if (group) input = group.querySelector('input, textarea');
-  }
-  if (input) input.focus();
-}, { passive: true });
-</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
@@ -39,28 +27,38 @@ document.addEventListener('touchend', function (e) {
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body, button, a, input, textarea, label {
-    cursor: pointer;
-  }
-  input, textarea {
-    cursor: text;
-    -webkit-user-select: text;
-    user-select: text;
-  }
 
   body {
     font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
     background: linear-gradient(160deg, #ffe9f6 0%, #f3e7ff 45%, #e7f4ff 100%);
     min-height: 100vh;
     color: var(--white);
+    overflow-x: hidden;
   }
 
-  body::before,
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(circle at 12% 18%, rgba(255,182,214,0.45) 0%, transparent 42%),
+      radial-gradient(circle at 88% 12%, rgba(186,164,255,0.4) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255,214,236,0.55) 0%, transparent 46%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
   .diamond-pattern {
-    display: none !important;
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='8' y='28' font-size='16' fill='rgba(255,140,190,0.18)'%3E%E2%99%A5%3C/text%3E%3Ctext x='40' y='58' font-size='14' fill='rgba(160,130,230,0.16)'%3E%E2%98%86%3C/text%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
   }
 
   .container {
+    position: relative;
+    z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
     padding: 20px;
@@ -68,6 +66,8 @@ document.addEventListener('touchend', function (e) {
 
   /* 连接状态 */
   .sync-status {
+    position: relative;
+    z-index: 2;
     width: fit-content;
     margin: 8px auto 4px;
     background: rgba(255,255,255,0.92);
@@ -89,25 +89,37 @@ document.addEventListener('touchend', function (e) {
 
   /* ===== 入口页 ===== */
   #entryPage {
-    display: block;
-    padding: 12px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 52px);
+    padding: 20px;
   }
 
   .logo-area {
     text-align: center;
-    margin: 0 auto 24px;
+    margin-bottom: 40px;
   }
 
   .logo-icon {
     font-size: 64px;
-    margin-top: 8px;
+    filter: drop-shadow(0 0 20px rgba(168,213,255,0.6));
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
   }
 
   .logo-area h1 {
     font-size: 36px;
     font-weight: 700;
     letter-spacing: 4px;
-    color: #b388eb;
+    background: linear-gradient(90deg, #ff7eb6, #b388eb, #7ec8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin-top: 12px;
   }
 
@@ -119,13 +131,13 @@ document.addEventListener('touchend', function (e) {
   }
 
   .entry-card {
-    background: rgba(255,255,255,0.96);
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(16px);
     border: 1px solid rgba(255,170,210,0.4);
     border-radius: 24px;
     padding: 40px 48px;
     width: 100%;
     max-width: 420px;
-    margin: 0 auto 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35);
   }
 
@@ -157,6 +169,7 @@ document.addEventListener('touchend', function (e) {
     color: #A94064;
     font-size: 16px;
     outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
   }
 
   .form-group input:focus {
@@ -181,6 +194,7 @@ document.addEventListener('touchend', function (e) {
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.25s;
     letter-spacing: 1px;
   }
 
@@ -191,7 +205,12 @@ document.addEventListener('touchend', function (e) {
     box-shadow: 0 8px 24px rgba(230,57,70,0.4);
   }
 
-  .btn-primary:active { opacity: 0.9; }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(230,57,70,0.55);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
 
   .btn-secondary {
     background: rgba(255,255,255,0.1);
@@ -369,7 +388,8 @@ document.addEventListener('touchend', function (e) {
   }
 
   .spin-btn:hover:not(:disabled) {
-    transform: none;
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 14px 36px rgba(230,57,70,0.65);
   }
 
   .spin-btn:disabled {
@@ -684,28 +704,36 @@ document.addEventListener('touchend', function (e) {
 
   .modal-overlay {
     display: none;
-    position: static;
-    width: 0;
-    height: 0;
-    overflow: hidden;
-    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,15,40,0.85);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
   }
-  .modal-overlay * { pointer-events: none; }
 
   .modal-overlay.show {
     display: flex;
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background: rgba(5,15,40,0.85);
-    z-index: 50;
-    align-items: center;
-    justify-content: center;
-    pointer-events: auto;
   }
-  .modal-overlay.show * { pointer-events: auto; }
+
+  .entry-popup {
+    background: #fff7fb center/cover no-repeat;
+    color: #A94064;
+    border: 1px solid rgba(255,170,210,0.65);
+    min-height: 240px;
+  }
+  .entry-popup-inner {
+    background: rgba(255,255,255,0.88);
+    border-radius: 16px;
+    padding: 22px 16px;
+  }
+  #entryPopupText {
+    font-size: 18px;
+    line-height: 1.7;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
 
   .modal {
     background: linear-gradient(160deg, #1a3a6e 0%, #0a1f44 100%);
@@ -985,22 +1013,25 @@ document.addEventListener('touchend', function (e) {
   }
 
   .toast {
-    display: none;
-  }
-
-  .toast.show {
-    display: block;
     position: fixed;
     bottom: 40px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(100px);
     background: #5a3d6e;
     border: 1px solid #ff8ec8;
     color: #fff;
     padding: 12px 28px;
     border-radius: 30px;
     font-size: 14px;
-    z-index: 60;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.35s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
   }
 
   /* 设置页提示 */
@@ -1039,6 +1070,7 @@ document.addEventListener('touchend', function (e) {
 </style>
 </head>
 <body>
+<div class="diamond-pattern"></div>
 
 <!-- 同步状态指示 -->
 <div class="sync-status" id="syncStatus">
@@ -1054,7 +1086,7 @@ document.addEventListener('touchend', function (e) {
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
-    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 13</p>
+    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 14</p>
   </div>
 
   <!-- 未开放提示 -->
@@ -1071,15 +1103,15 @@ document.addEventListener('touchend', function (e) {
   <!-- 正常进入表单 -->
   <div id="joinCard" class="entry-card">
     <h2>参与抽奖</h2>
-    <div class="form-group" ontouchstart="var n=this.querySelector('input'); if(n) n.focus();">
-      <label for="inputId">宠爱ID</label>
-      <input type="text" id="inputId" inputmode="numeric" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off" ontouchstart="this.focus()" onclick="this.focus()">
+    <div class="form-group">
+      <label>宠爱ID</label>
+      <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
-    <div class="form-group" ontouchstart="var n=this.querySelector('input'); if(n) n.focus();">
-      <label for="inputName">平台账号</label>
-      <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off" ontouchstart="this.focus()" onclick="this.focus()">
+    <div class="form-group">
+      <label>平台账号</label>
+      <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off">
     </div>
-    <button type="button" class="btn btn-primary" onclick="joinLottery()" style="pointer-events:auto;">进入抽奖页面</button>
+    <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
       <button type="button" onclick="showPasswordModal()">主办人设置 ▸</button>
     </div>
@@ -1203,6 +1235,7 @@ document.addEventListener('touchend', function (e) {
     <button class="tab-btn" onclick="switchTab('prizes')">奖品管理</button>
     <button class="tab-btn" onclick="switchTab('winners')">抽奖与中奖</button>
     <button class="tab-btn" onclick="switchTab('settings')">转盘系统设置</button>
+    <button class="tab-btn" onclick="switchTab('popup')">弹窗设置</button>
     <button class="tab-btn" onclick="switchTab('checkins')">签到记录</button>
     <button class="tab-btn" onclick="switchTab('checkinSettings')">签到系统设置</button>
     <button class="tab-btn" onclick="switchTab('stars')">集星记录审核</button>
@@ -1419,6 +1452,32 @@ document.addEventListener('touchend', function (e) {
       </div>
     </div>
   </div>
+
+  <div id="tab-popup" class="tab-content">
+    <div class="panel-card" style="max-width:520px;">
+      <h3>入口弹窗</h3>
+      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。会员打开这个入口时弹出。改完要点保存。</p>
+      <div class="form-group">
+        <label>弹窗文案</label>
+        <textarea id="settingPopupText" rows="3" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid rgba(255,170,210,0.5); background:#fff; color:#A94064; font-size:14px;">欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。</textarea>
+        <p style="font-size:12px; color:#A94064; margin-top:6px;">{入口} 会自动换成当前名字，例如星辰、星耀。</p>
+      </div>
+      <div class="form-group">
+        <label>弹窗背景色</label>
+        <input type="color" id="settingPopupColor" value="#fff7fb">
+      </div>
+      <div class="form-group">
+        <label>弹窗背景图</label>
+        <input type="file" id="settingPopupBg" accept="image/*" onchange="handlePopupBg(event)">
+        <img id="settingPopupPreview" alt="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:12px; margin-top:8px;">
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="clearPopupBg()">清除背景图</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存弹窗到云端</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览弹窗</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 密码弹窗 -->
@@ -1504,6 +1563,9 @@ const DEFAULT_SETTINGS = {
   checkin3Text: '连续签到 3 天额外次数',
   checkin7Text: '连续签到 7 天额外次数',
   checkinHint: '每天只能签到 1 次。中断一天连续天数归 1。满 7 天后从 1 重新计。',
+  popupText: '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。',
+  popupBg: '',
+  popupBgColor: '#fff7fb',
   starTasks: [
     { key:'signin', name:'每日签到', desc:'完成今日签到' },
     { key:'interact', name:'互动任务', desc:'与维护互动一次' },
@@ -1972,7 +2034,7 @@ function tryRestoreSession() {
 }
 
 function showPage(page) {
-  document.getElementById('entryPage').style.display = page === 'entry' ? 'block' : 'none';
+  document.getElementById('entryPage').style.display = page === 'entry' ? 'flex' : 'none';
   document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
   document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
   if (page === 'entry') {
@@ -3157,6 +3219,7 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
+  closeEntryPopup();
   document.getElementById('adminPasswordInput').value = '';
   document.getElementById('passwordModal').classList.add('show');
   setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
@@ -3835,6 +3898,21 @@ function loadSettingsForm() {
   const lines = Object.keys(quota).map(id => `${id} ${quota[id]}`);
   const quotaEl = document.getElementById('settingQuotaText');
   if (quotaEl) quotaEl.value = lines.join('\n');
+  const popupText = document.getElementById('settingPopupText');
+  if (popupText && document.activeElement !== popupText) {
+    popupText.value = settings.popupText || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
+  }
+  const popupColor = document.getElementById('settingPopupColor');
+  if (popupColor && document.activeElement !== popupColor) popupColor.value = settings.popupBgColor || '#fff7fb';
+  const popupPreview = document.getElementById('settingPopupPreview');
+  if (popupPreview) {
+    if (settings.popupBg) {
+      popupPreview.src = settings.popupBg;
+      popupPreview.style.display = 'block';
+    } else {
+      popupPreview.style.display = 'none';
+    }
+  }
 
   // 处理开放时间回填（datetime-local 需要本地格式 YYYY-MM-DDTHH:mm）
   const ot = settings.openTime || '';
@@ -3855,6 +3933,58 @@ function loadSettingsForm() {
     input.value = '';
   }
   renderStarAdmin();
+}
+
+function popupMessage() {
+  const name = currentDept().name;
+  const tpl = settings.popupText || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
+  return String(tpl).replace(/\{入口\}/g, name);
+}
+
+function applyEntryPopup() {
+  const card = document.getElementById('entryPopupCard');
+  const text = document.getElementById('entryPopupText');
+  if (!card || !text) return;
+  text.textContent = popupMessage();
+  card.style.backgroundColor = settings.popupBgColor || '#fff7fb';
+  card.style.backgroundImage = settings.popupBg ? 'url("' + String(settings.popupBg).replace(/"/g, '') + '")' : 'none';
+  card.style.backgroundSize = 'cover';
+  card.style.backgroundPosition = 'center';
+}
+
+function showEntryPopup() {}
+function previewEntryPopup() {}
+function closeEntryPopup() {}
+
+function handlePopupBg(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (file.size > 400 * 1024) {
+    showToast('背景图请小于 400KB');
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    settings.popupBg = ev.target.result;
+    const img = document.getElementById('settingPopupPreview');
+    if (img) {
+      img.src = settings.popupBg;
+      img.style.display = 'block';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPopupBg() {
+  settings.popupBg = '';
+  const img = document.getElementById('settingPopupPreview');
+  if (img) {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  }
+  const input = document.getElementById('settingPopupBg');
+  if (input) input.value = '';
 }
 
 function saveSettings() {
@@ -3887,6 +4017,10 @@ function saveSettings() {
     }
   });
   settings.customQuota = customQuota;
+  const popupTextEl = document.getElementById('settingPopupText');
+  settings.popupText = (popupTextEl && popupTextEl.value.trim()) || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
+  const popupColorEl = document.getElementById('settingPopupColor');
+  settings.popupBgColor = (popupColorEl && popupColorEl.value) || '#fff7fb';
 
   const localVal = document.getElementById('settingOpenTime').value;
   if (localVal) {
