@@ -240,11 +240,15 @@
     margin-top: 24px;
   }
 
-  .admin-link a {
+  .admin-link a,
+  .admin-link button {
     color: #A94064;
     font-size: 13px;
     text-decoration: none;
     cursor: pointer;
+    background: none;
+    border: none;
+    padding: 8px 12px;
   }
 
   .admin-link a:hover { color: var(--diamond); }
@@ -708,6 +712,10 @@
     backdrop-filter: blur(6px);
   }
 
+  .modal-overlay.show {
+    display: flex;
+  }
+
   .entry-popup {
     background: #fff7fb center/cover no-repeat;
     color: #A94064;
@@ -1069,7 +1077,7 @@
     <div id="openTimeDisplay" style="font-size:22px; font-weight:700; color:var(--diamond); margin-bottom:20px;"></div>
     <p style="font-size:13px; color:#A94064;">请稍后再来，或等待主办人开放</p>
     <div class="admin-link" style="margin-top:28px;">
-      <a onclick="showPasswordModal()">主办人设置 ▸</a>
+      <button type="button" onclick="showPasswordModal()">主办人设置 ▸</button>
     </div>
   </div>
 
@@ -1086,7 +1094,7 @@
     </div>
     <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
-      <a onclick="showPasswordModal()">主办人设置 ▸</a>
+      <button type="button" onclick="showPasswordModal()">主办人设置 ▸</button>
     </div>
   </div>
 
@@ -3123,6 +3131,7 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
+  closeEntryPopup();
   document.getElementById('adminPasswordInput').value = '';
   document.getElementById('passwordModal').classList.add('show');
   setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
