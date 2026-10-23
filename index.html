@@ -1,18 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="booting">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- ios-refresh-2142 -->
 <title>幸运钻石转盘 · 云端同步版</title>
-<!-- Firebase SDK (compat 方便单文件使用) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<style>
+<style id="appCss" media="not all">
   :root {
     --blue-deep: #5c3d78;
     --blue-main: #7a4e9a;
@@ -1024,6 +1020,32 @@
   .dept-chip.on { background:#A94064; color:#fff; border-color:#A94064; }
   .dept-note { font-size:13px; color:#A94064; text-align:center; margin:4px 0 8px; }
 </style>
+<style>
+  html.booting body { margin: 0; padding: 16px; font-family: sans-serif; background: #fff7fb; color: #A94064; }
+  html.booting #lotteryPage,
+  html.booting #adminPage,
+  html.booting .modal-overlay,
+  html.booting .toast,
+  html.booting #setupHint { display: none; }
+  html.booting #entryPage { display: block; max-width: 420px; margin: 0 auto; }
+  html.booting #joinCard input,
+  html.booting #closedCard input,
+  html.booting #passwordModal input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 18px;
+    padding: 14px;
+    margin: 8px 0 14px;
+    color: #222;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  html.booting #joinCard button,
+  html.booting .dept-chip { font-size: 18px; padding: 14px 20px; margin-top: 8px; }
+  html.booting #joinCard .btn-primary { width: 100%; }
+</style>
 </head>
 <body>
 
@@ -1041,7 +1063,7 @@
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
-    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 18</p>
+    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 19</p>
   </div>
 
   <!-- 未开放提示 -->
@@ -1450,6 +1472,8 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* ============================================================
    【重要】请把下面的 firebaseConfig 替换成你自己的配置
@@ -1961,7 +1985,14 @@ function tryRestoreSession() {
   }
 }
 
+function enableAppCss(on) {
+  const css = document.getElementById('appCss');
+  if (css) css.media = on ? 'all' : 'not all';
+  document.documentElement.classList.toggle('booting', !on);
+}
+
 function showPage(page) {
+  enableAppCss(page !== 'entry');
   document.getElementById('entryPage').style.display = page === 'entry' ? 'block' : 'none';
   document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
   document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
@@ -3147,6 +3178,7 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
+  enableAppCss(true);
   closeEntryPopup();
   document.getElementById('adminPasswordInput').value = '';
   document.getElementById('passwordModal').classList.add('show');
@@ -3155,6 +3187,7 @@ function showPasswordModal() {
 
 function closePasswordModal() {
   document.getElementById('passwordModal').classList.remove('show');
+  if (document.getElementById('entryPage').style.display !== 'none') enableAppCss(false);
 }
 
 function verifyAdmin() {
