@@ -704,29 +704,22 @@
 
   .modal-overlay {
     display: none;
+    pointer-events: none;
     position: fixed;
     inset: 0;
     background: rgba(5,15,40,0.85);
     z-index: 9999;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(6px);
   }
 
-  #entryPopup {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  .modal-overlay.show {
+    display: flex;
+    pointer-events: auto;
   }
-  #entryPopupClose {
-    position: relative;
-    z-index: 3;
-    touch-action: manipulation;
-  }
+
   @media (hover: none) {
-    .btn-primary:hover,
-    .spin-btn:hover:not(:disabled) {
-      transform: none;
-    }
+    .btn-primary:hover { transform: none; }
   }
 
   .entry-popup {
@@ -1492,11 +1485,11 @@
 </div>
 
 <!-- 入口确认弹窗 -->
-<div class="modal-overlay" id="entryPopup">
-  <div class="modal entry-popup" id="entryPopupCard">
+<div class="modal-overlay" id="entryPopup" onclick="if(event.target===this) closeEntryPopup()">
+  <div class="modal entry-popup" id="entryPopupCard" onclick="event.stopPropagation()">
     <div class="entry-popup-inner">
       <p id="entryPopupText">欢迎进入宠爱转盘，请确认当前转盘入口是正确的。</p>
-      <button type="button" class="btn btn-primary" id="entryPopupClose">我知道了</button>
+      <button type="button" class="btn btn-primary" id="entryPopupClose" onclick="closeEntryPopup()">我知道了</button>
     </div>
   </div>
 </div>
@@ -3997,34 +3990,6 @@ function closeEntryPopup() {
   const el = document.getElementById('entryPopup');
   if (el) el.classList.remove('show');
 }
-
-(function bindEntryPopup() {
-  const mask = document.getElementById('entryPopup');
-  const btn = document.getElementById('entryPopupClose');
-  if (btn) {
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeEntryPopup();
-    });
-    btn.addEventListener('touchend', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeEntryPopup();
-    }, { passive: false });
-  }
-  if (mask) {
-    mask.addEventListener('click', function (e) {
-      if (e.target === mask) closeEntryPopup();
-    });
-    mask.addEventListener('touchend', function (e) {
-      if (e.target === mask) {
-        e.preventDefault();
-        closeEntryPopup();
-      }
-    }, { passive: false });
-  }
-})();
 
 function handlePopupBg(e) {
   const file = e.target.files && e.target.files[0];
