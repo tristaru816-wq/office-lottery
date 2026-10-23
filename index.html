@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- ios-tap-2148 -->
+<!-- ios-tap-2210 -->
 <title>幸运钻石转盘 · 云端同步版</title>
 <!-- Firebase SDK (compat 方便单文件使用) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -33,27 +33,12 @@
     background: linear-gradient(160deg, #ffe9f6 0%, #f3e7ff 45%, #e7f4ff 100%);
     min-height: 100vh;
     color: var(--white);
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image: 
-      radial-gradient(circle at 12% 18%, rgba(255,182,214,0.45) 0%, transparent 42%),
-      radial-gradient(circle at 88% 12%, rgba(186,164,255,0.4) 0%, transparent 40%),
-      radial-gradient(circle at 80% 80%, rgba(255,214,236,0.55) 0%, transparent 46%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
+  body::before,
   .diamond-pattern {
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='8' y='28' font-size='16' fill='rgba(255,140,190,0.18)'%3E%E2%99%A5%3C/text%3E%3Ctext x='40' y='58' font-size='14' fill='rgba(160,130,230,0.16)'%3E%E2%98%86%3C/text%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
+    display: none !important;
   }
 
   .container {
@@ -90,6 +75,8 @@
   /* ===== 入口页 ===== */
   #entryPage {
     display: block;
+    position: relative;
+    z-index: 2;
     padding: 12px 16px 48px;
   }
 
@@ -167,9 +154,6 @@
     color: #A94064;
     font-size: 16px;
     outline: none;
-    position: relative;
-    z-index: 3;
-    touch-action: manipulation;
   }
 
   .form-group input:focus {
@@ -203,9 +187,6 @@
     background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
     color: white;
     box-shadow: 0 8px 24px rgba(230,57,70,0.4);
-    touch-action: manipulation;
-    position: relative;
-    z-index: 3;
   }
 
   .btn-primary:active { opacity: 0.9; }
@@ -701,7 +682,8 @@
   }
 
   .modal-overlay {
-    display: none;
+    display: none !important;
+    visibility: hidden;
     pointer-events: none;
     position: fixed;
     inset: 0;
@@ -712,7 +694,8 @@
   }
 
   .modal-overlay.show {
-    display: flex;
+    display: flex !important;
+    visibility: visible;
     pointer-events: auto;
   }
 
@@ -1067,6 +1050,7 @@
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
+    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 10</p>
   </div>
 
   <!-- 未开放提示 -->
@@ -1084,11 +1068,11 @@
   <div id="joinCard" class="entry-card">
     <h2>参与抽奖</h2>
     <div class="form-group">
-      <label>宠爱ID</label>
-      <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
+      <label for="inputId">宠爱ID</label>
+      <input type="tel" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>平台账号</label>
+      <label for="inputName">平台账号</label>
       <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off">
     </div>
     <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
@@ -4128,6 +4112,18 @@ document.addEventListener('input', function (e) {
 });
 
 // 启动
+(function () {
+  function focusField(e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var field = null;
+    if (t.closest('input, textarea')) field = t.closest('input, textarea');
+    else if (t.closest('.form-group')) field = t.closest('.form-group').querySelector('input, textarea');
+    if (field) field.focus();
+  }
+  document.addEventListener('click', focusField);
+  document.addEventListener('touchend', focusField, { passive: true });
+})();
 initFirebase();
 paintDept();
 
