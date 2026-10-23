@@ -722,22 +722,18 @@
     .btn-primary:hover { transform: none; }
   }
 
-  .entry-popup {
-    background: #fff7fb center/cover no-repeat;
-    color: #A94064;
-    border: 1px solid rgba(255,170,210,0.65);
-    min-height: 240px;
+  .entry-notice {
+    margin: 0 auto 16px;
+    text-align: center;
+    position: relative;
+    z-index: 2;
   }
-  .entry-popup-inner {
-    background: rgba(255,255,255,0.88);
-    border-radius: 16px;
-    padding: 22px 16px;
-  }
-  #entryPopupText {
-    font-size: 18px;
+  .entry-notice p {
+    font-size: 16px;
     line-height: 1.7;
     font-weight: 700;
-    margin-bottom: 18px;
+    color: #A94064;
+    margin-bottom: 14px;
   }
 
   .modal {
@@ -1091,6 +1087,11 @@
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
+  </div>
+
+  <div id="entryPopup" class="entry-card entry-notice" style="display:none;">
+    <p id="entryPopupText">欢迎进入宠爱转盘，请确认当前转盘入口是正确的。</p>
+    <button type="button" class="btn btn-primary" id="entryPopupClose" onclick="closeEntryPopup()" ontouchend="closeEntryPopup()">我知道了</button>
   </div>
 
   <!-- 未开放提示 -->
@@ -1460,7 +1461,7 @@
   <div id="tab-popup" class="tab-content">
     <div class="panel-card" style="max-width:520px;">
       <h3>入口弹窗</h3>
-      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。会员打开这个入口时弹出。改完要点保存。</p>
+      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。提示会出现在入口页上方，不会挡住页面。点「我知道了」或点页面其他地方都会关掉。</p>
       <div class="form-group">
         <label>弹窗文案</label>
         <textarea id="settingPopupText" rows="3" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid rgba(255,170,210,0.5); background:#fff; color:#A94064; font-size:14px;">欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。</textarea>
@@ -1478,18 +1479,9 @@
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存弹窗到云端</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览弹窗</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览文案</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- 入口确认弹窗 -->
-<div class="modal-overlay" id="entryPopup" onclick="if(event.target===this) closeEntryPopup()">
-  <div class="modal entry-popup" id="entryPopupCard" onclick="event.stopPropagation()">
-    <div class="entry-popup-inner">
-      <p id="entryPopupText">欢迎进入宠爱转盘，请确认当前转盘入口是正确的。</p>
-      <button type="button" class="btn btn-primary" id="entryPopupClose" onclick="closeEntryPopup()">我知道了</button>
+      <div id="popupLivePreview" style="display:none; margin-top:14px; padding:14px; border-radius:14px; background:#fff7fb; color:#A94064; font-weight:700; line-height:1.7;"></div>
     </div>
   </div>
 </div>
@@ -3958,21 +3950,22 @@ function popupMessage() {
 }
 
 function applyEntryPopup() {
-  const card = document.getElementById('entryPopupCard');
+  const card = document.getElementById('entryPopup');
   const text = document.getElementById('entryPopupText');
   if (!card || !text) return;
   text.textContent = popupMessage();
-  card.style.backgroundColor = settings.popupBgColor || '#fff7fb';
+  card.style.backgroundColor = settings.popupBgColor || '#fff';
   card.style.backgroundImage = settings.popupBg ? 'url("' + String(settings.popupBg).replace(/"/g, '') + '")' : 'none';
   card.style.backgroundSize = 'cover';
   card.style.backgroundPosition = 'center';
 }
 
 function showEntryPopup() {
-  applyEntryPopup();
   const el = document.getElementById('entryPopup');
-  if (!el || window._entryPopupShown) return;
-  el.classList.add('show');
+  if (!el) return;
+  applyEntryPopup();
+  if (window._entryPopupShown) return;
+  el.style.display = 'block';
   window._entryPopupShown = true;
 }
 
@@ -3982,14 +3975,31 @@ function previewEntryPopup() {
   if (textEl) settings.popupText = textEl.value.trim() || settings.popupText;
   if (colorEl) settings.popupBgColor = colorEl.value || settings.popupBgColor;
   applyEntryPopup();
-  const el = document.getElementById('entryPopup');
-  if (el) el.classList.add('show');
+  const box = document.getElementById('popupLivePreview');
+  if (box) {
+    box.style.display = 'block';
+    box.textContent = popupMessage();
+    box.style.backgroundColor = settings.popupBgColor || '#fff7fb';
+  }
 }
 
 function closeEntryPopup() {
   const el = document.getElementById('entryPopup');
-  if (el) el.classList.remove('show');
+  if (el) el.style.display = 'none';
 }
+
+document.addEventListener('click', function (e) {
+  const el = document.getElementById('entryPopup');
+  if (!el || el.style.display === 'none') return;
+  if (e.target && e.target.closest && e.target.closest('#entryPopup')) return;
+  closeEntryPopup();
+});
+document.addEventListener('touchend', function (e) {
+  const el = document.getElementById('entryPopup');
+  if (!el || el.style.display === 'none') return;
+  if (e.target && e.target.closest && e.target.closest('#entryPopup')) return;
+  closeEntryPopup();
+}, { passive: true });
 
 function handlePopupBg(e) {
   const file = e.target.files && e.target.files[0];
