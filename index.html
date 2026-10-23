@@ -3486,12 +3486,14 @@ function renderParticipantTable() {
     list = list.filter(p => String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword) || memberHasCode(p.id, keyword));
   }
   list.sort((a, b) => {
-    const ra = getRemaining(a) > 0 ? 0 : 1;
-    const rb = getRemaining(b) > 0 ? 0 : 1;
-    if (ra !== rb) return ra - rb;
-    const ta = parseLooseDate(a.loginTime || a.joinTime) || 0;
-    const tb = parseLooseDate(b.loginTime || b.joinTime) || 0;
-    return tb - ta;
+    const sa = latestSpin(a.id);
+    const sb = latestSpin(b.id);
+    const ta = sa ? (parseLooseDate(sa.iso || sa.time) || 0) : 0;
+    const tb = sb ? (parseLooseDate(sb.iso || sb.time) || 0) : 0;
+    if (ta !== tb) return tb - ta;
+    const la = parseLooseDate(a.loginTime || a.joinTime) || 0;
+    const lb = parseLooseDate(b.loginTime || b.joinTime) || 0;
+    return lb - la;
   });
   const countEl = document.getElementById('partSearchCount');
   if (countEl) countEl.textContent = keyword ? `找到 ${list.length} 人` : `共 ${list.length} 人`;
