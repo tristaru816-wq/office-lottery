@@ -1,14 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="booting">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- ios-refresh-2142 -->
 <title>幸运钻石转盘 · 云端同步版</title>
-<style id="appCss" media="not all">
+<!-- Firebase SDK (compat 方便单文件使用) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
   :root {
     --blue-deep: #5c3d78;
     --blue-main: #7a4e9a;
@@ -29,9 +33,32 @@
     background: linear-gradient(160deg, #ffe9f6 0%, #f3e7ff 45%, #e7f4ff 100%);
     min-height: 100vh;
     color: var(--white);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(circle at 12% 18%, rgba(255,182,214,0.45) 0%, transparent 42%),
+      radial-gradient(circle at 88% 12%, rgba(186,164,255,0.4) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(255,214,236,0.55) 0%, transparent 46%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .diamond-pattern {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='8' y='28' font-size='16' fill='rgba(255,140,190,0.18)'%3E%E2%99%A5%3C/text%3E%3Ctext x='40' y='58' font-size='14' fill='rgba(160,130,230,0.16)'%3E%E2%98%86%3C/text%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
   }
 
   .container {
+    position: relative;
+    z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
     padding: 20px;
@@ -39,6 +66,8 @@
 
   /* 连接状态 */
   .sync-status {
+    position: relative;
+    z-index: 2;
     width: fit-content;
     margin: 8px auto 4px;
     background: rgba(255,255,255,0.92);
@@ -60,8 +89,12 @@
 
   /* ===== 入口页 ===== */
   #entryPage {
-    display: block;
-    padding: 12px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 52px);
+    padding: 20px;
   }
 
   .logo-area {
@@ -71,14 +104,22 @@
 
   .logo-icon {
     font-size: 64px;
-    margin-top: 8px;
+    filter: drop-shadow(0 0 20px rgba(168,213,255,0.6));
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
   }
 
   .logo-area h1 {
     font-size: 36px;
     font-weight: 700;
     letter-spacing: 4px;
-    color: #b388eb;
+    background: linear-gradient(90deg, #ff7eb6, #b388eb, #7ec8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin-top: 12px;
   }
 
@@ -90,13 +131,13 @@
   }
 
   .entry-card {
-    background: #fff;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(16px);
     border: 1px solid rgba(255,170,210,0.4);
     border-radius: 24px;
     padding: 40px 48px;
     width: 100%;
     max-width: 420px;
-    margin: 0 auto 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35);
   }
 
@@ -164,7 +205,12 @@
     box-shadow: 0 8px 24px rgba(230,57,70,0.4);
   }
 
-  .btn-primary:active { opacity: 0.9; }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(230,57,70,0.55);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
 
   .btn-secondary {
     background: rgba(255,255,255,0.1);
@@ -313,7 +359,7 @@
     border-left: 18px solid transparent;
     border-right: 18px solid transparent;
     border-top: 36px solid #ff6fae;
-    filter: none;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
     z-index: 10;
   }
 
@@ -342,7 +388,8 @@
   }
 
   .spin-btn:hover:not(:disabled) {
-    transform: none;
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 14px 36px rgba(230,57,70,0.65);
   }
 
   .spin-btn:disabled {
@@ -657,16 +704,17 @@
 
   .modal-overlay {
     display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,15,40,0.85);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
   }
 
   .modal-overlay.show {
     display: flex;
-    position: fixed;
-    inset: 0;
-    background: rgba(5,15,40,0.85);
-    z-index: 50;
-    align-items: center;
-    justify-content: center;
   }
 
   .entry-popup {
@@ -698,6 +746,22 @@
     box-shadow: 0 30px 80px rgba(0,0,0,0.5);
     position: relative;
     overflow: hidden;
+  }
+
+  .modal.win-modal::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
   }
 
   .modal h2 {
@@ -949,22 +1013,25 @@
   }
 
   .toast {
-    display: none;
-  }
-
-  .toast.show {
-    display: block;
     position: fixed;
     bottom: 40px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(100px);
     background: #5a3d6e;
     border: 1px solid #ff8ec8;
     color: #fff;
     padding: 12px 28px;
     border-radius: 30px;
     font-size: 14px;
-    z-index: 60;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.35s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
   }
 
   /* 设置页提示 */
@@ -1001,37 +1068,9 @@
   .dept-chip.on { background:#A94064; color:#fff; border-color:#A94064; }
   .dept-note { font-size:13px; color:#A94064; text-align:center; margin:4px 0 8px; }
 </style>
-<style>
-  html.booting body { margin: 0; padding: 16px; font-family: sans-serif; background: #fff7fb; color: #A94064; }
-  html.booting #lotteryPage,
-  html.booting #adminPage,
-  html.booting .modal-overlay,
-  html.booting .toast,
-  html.booting #setupHint,
-  html.booting #closedCard { display: none; }
-  html.booting #entryPage { display: block; max-width: 420px; margin: 0 auto; }
-  html.booting #joinCard input {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 18px;
-    padding: 14px;
-    margin: 8px 0 14px;
-    color: #222;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-  }
-  html.booting #joinCard button,
-  html.booting .dept-chip {
-    font-size: 18px;
-    padding: 14px 20px;
-    margin-top: 8px;
-  }
-  html.booting #joinCard .btn-primary { width: 100%; }
-</style>
 </head>
 <body>
+<div class="diamond-pattern"></div>
 
 <!-- 同步状态指示 -->
 <div class="sync-status" id="syncStatus">
@@ -1047,7 +1086,7 @@
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
-    <p style="margin-top:4px;font-size:16px;color:#A94064;">版本 16</p>
+    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 17</p>
   </div>
 
   <!-- 未开放提示 -->
@@ -1066,13 +1105,13 @@
     <h2>参与抽奖</h2>
     <div class="form-group">
       <label>宠爱ID</label>
-      <input type="text" id="inputId" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
+      <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
     <div class="form-group">
       <label>平台账号</label>
       <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off">
     </div>
-    <button type="button" class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
+    <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
       <button type="button" onclick="showPasswordModal()">主办人设置 ▸</button>
     </div>
@@ -1196,7 +1235,6 @@
     <button class="tab-btn" onclick="switchTab('prizes')">奖品管理</button>
     <button class="tab-btn" onclick="switchTab('winners')">抽奖与中奖</button>
     <button class="tab-btn" onclick="switchTab('settings')">转盘系统设置</button>
-    <button class="tab-btn" onclick="switchTab('popup')">弹窗设置</button>
     <button class="tab-btn" onclick="switchTab('checkins')">签到记录</button>
     <button class="tab-btn" onclick="switchTab('checkinSettings')">签到系统设置</button>
     <button class="tab-btn" onclick="switchTab('stars')">集星记录审核</button>
@@ -1413,32 +1451,6 @@
       </div>
     </div>
   </div>
-
-  <div id="tab-popup" class="tab-content">
-    <div class="panel-card" style="max-width:520px;">
-      <h3>入口弹窗</h3>
-      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。会员打开这个入口时弹出。改完要点保存。</p>
-      <div class="form-group">
-        <label>弹窗文案</label>
-        <textarea id="settingPopupText" rows="3" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid rgba(255,170,210,0.5); background:#fff; color:#A94064; font-size:14px;">欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。</textarea>
-        <p style="font-size:12px; color:#A94064; margin-top:6px;">{入口} 会自动换成当前名字，例如星辰、星耀。</p>
-      </div>
-      <div class="form-group">
-        <label>弹窗背景色</label>
-        <input type="color" id="settingPopupColor" value="#fff7fb">
-      </div>
-      <div class="form-group">
-        <label>弹窗背景图</label>
-        <input type="file" id="settingPopupBg" accept="image/*" onchange="handlePopupBg(event)">
-        <img id="settingPopupPreview" alt="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:12px; margin-top:8px;">
-        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="clearPopupBg()">清除背景图</button>
-      </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存弹窗到云端</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览弹窗</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- 密码弹窗 -->
@@ -1598,7 +1610,7 @@ function paintDept() {
   document.querySelectorAll('.dept-switch').forEach(box => {
     box.innerHTML = DEPT_LIST.map(item => {
       const on = item.key === d.key ? ' on' : '';
-      return `<button type="button" class="dept-chip${on}" onclick="location.href='${deptUrl(item)}'">${item.name}</button>`;
+      return `<a class="dept-chip${on}" href="${deptUrl(item)}">${item.name}</a>`;
     }).join('');
   });
   const box = document.getElementById('deptLinks');
@@ -1874,59 +1886,8 @@ function inRange(ts, fromVal, toVal) {
   return true;
 }
 
-function enableAppCss() {
-  const css = document.getElementById('appCss');
-  if (css) css.media = 'all';
-  document.documentElement.classList.remove('booting');
-}
-
-function bootFirebase() {
-  if (window.firebase && isFirebaseReady) return Promise.resolve();
-  if (window._bootPromise) return window._bootPromise;
-  window._bootPromise = new Promise((resolve, reject) => {
-    function waitReady() {
-      const start = Date.now();
-      (function tick() {
-        if (window._sessionTried || Date.now() - start > 8000) resolve();
-        else setTimeout(tick, 50);
-      })();
-    }
-    function loadDb() {
-      const b = document.createElement('script');
-      b.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
-      b.onload = function () { initFirebase(); waitReady(); };
-      b.onerror = reject;
-      document.head.appendChild(b);
-    }
-    if (window.firebase) { loadDb(); return; }
-    const a = document.createElement('script');
-    a.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
-    a.onload = loadDb;
-    a.onerror = reject;
-    document.head.appendChild(a);
-  });
-  return window._bootPromise;
-}
-
 /* ==================== 入口 ==================== */
 function joinLottery() {
-  if (window._firebaseBooted !== 'yes') {
-    if (window._firebaseBooted === 'pending') return;
-    window._firebaseBooted = 'pending';
-    const btn = document.querySelector('#joinCard button.btn-primary');
-    if (btn) btn.textContent = '连接中...';
-    bootFirebase().then(() => {
-      window._firebaseBooted = 'yes';
-      if (btn) btn.textContent = '进入抽奖页面';
-      enableAppCss();
-      joinLottery();
-    }).catch(() => {
-      window._firebaseBooted = '';
-      if (btn) btn.textContent = '进入抽奖页面';
-      alert('连接失败，请重试');
-    });
-    return;
-  }
   if (!isLotteryOpen()) {
     showToast('抽奖尚未开启，请等待开放时间');
     updateEntryUI();
@@ -2046,8 +2007,7 @@ function tryRestoreSession() {
 }
 
 function showPage(page) {
-  if (page !== 'entry') enableAppCss();
-  document.getElementById('entryPage').style.display = page === 'entry' ? 'block' : 'none';
+  document.getElementById('entryPage').style.display = page === 'entry' ? 'flex' : 'none';
   document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
   document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
   if (page === 'entry') {
@@ -3232,13 +3192,10 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
-  enableAppCss();
-  bootFirebase().then(() => {
-    closeEntryPopup();
-    document.getElementById('adminPasswordInput').value = '';
-    document.getElementById('passwordModal').classList.add('show');
-    setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
-  });
+  closeEntryPopup();
+  document.getElementById('adminPasswordInput').value = '';
+  document.getElementById('passwordModal').classList.add('show');
+  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
 }
 
 function closePasswordModal() {
@@ -3969,7 +3926,9 @@ function applyEntryPopup() {
 }
 
 function showEntryPopup() {}
+
 function previewEntryPopup() {}
+
 function closeEntryPopup() {}
 
 function handlePopupBg(e) {
@@ -4265,7 +4224,8 @@ document.addEventListener('input', function (e) {
   }
 });
 
-// 启动。先不要连云端，避免手机一打开就点不到输入框。
+// 启动
+initFirebase();
 paintDept();
 
 // 每 30 秒检查一次是否到了开放时间（自动切换界面）
