@@ -792,10 +792,28 @@
     margin-bottom: 8px;
   }
 
-  .modal .prize-amount {
-    font-size: 18px;
-    color: var(--red);
-    font-weight: 600;
+  .modal .result-dept {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #fff;
+    color: #A94064;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .modal .result-code {
+    position: relative;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #fff7fb;
+    color: #A94064;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
   }
 
   .modal .btn { margin-top: 24px; min-width: 140px; }
@@ -1064,9 +1082,8 @@
   <div class="logo-area">
     <div class="logo-icon">💎</div>
     <h1>幸运钻石转盘</h1>
-    <p>办公室专属 · <span id="deptLabel">星际</span></p>
+    <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
-    <p class="dept-note" id="deptNote">当前入口：星际。奖品和设置只属于这个入口。</p>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
   </div>
 
@@ -1282,7 +1299,7 @@
           <thead>
             <tr>
               <th style="width:42px;"><input type="checkbox" id="checkAllWin" onchange="toggleAllWin(this.checked)"></th>
-              <th>宠爱ID</th><th>平台账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间</th><th>上次抽奖时间</th>
+              <th>中奖编码</th><th>入口</th><th>宠爱ID</th><th>平台账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间</th><th>上次抽奖时间</th>
             </tr>
           </thead>
           <tbody id="winnerTable"></tbody>
@@ -1492,10 +1509,12 @@
 <div class="modal-overlay" id="resultModal" onclick="if(event.target===this) closeResultModal()">
   <div class="modal win-modal" id="resultModalContent">
     <h2 id="resultTitle">🎉 恭喜中奖！</h2>
+    <div class="result-dept" id="resultDept">宠爱宝贝专属 · 星际</div>
     <img id="resultImg" class="prize-img" src="" alt="" style="display:none;">
     <div class="prize-title" id="resultPrizeName"></div>
     <div class="prize-desc" id="resultPrizeDesc"></div>
     <div class="prize-amount" id="resultPrizeAmount"></div>
+    <div class="result-code" id="resultCode">中奖编码</div>
     <button type="button" class="btn btn-primary" id="resultConfirmBtn">确定</button>
   </div>
 </div>
@@ -1610,11 +1629,8 @@ function paintDept() {
   if (label) label.textContent = d.name;
   if (admin) admin.textContent = d.name;
   document.title = '幸运钻石转盘 · ' + d.name;
-  const note = '当前入口：' + d.name + '。奖品、次数、签到、集星只属于' + d.name + '，不会影响其他入口。';
-  const entryNote = document.getElementById('deptNote');
   const adminNote = document.getElementById('deptNoteAdmin');
   const lotteryNote = document.getElementById('lotteryDeptNote');
-  if (entryNote) entryNote.textContent = note;
   if (adminNote) adminNote.textContent = '正在设置「' + d.name + '」。保存后只改这一份。';
   if (lotteryNote) lotteryNote.textContent = d.name;
   document.querySelectorAll('.dept-switch').forEach(box => {
@@ -2197,37 +2213,106 @@ function startSpin() {
   requestAnimationFrame(animate);
 }
 
+function shanghaiParts(date) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = {};
+  fmt.formatToParts(date || new Date()).forEach(p => { parts[p.type] = p.value; });
+  if (parts.hour === '24') parts.hour = '00';
+  return parts;
+}
+
+function mmddOf(date) {
+  const p = shanghaiParts(date);
+  return String(p.month || '') + String(p.day || '');
+}
+
+function recordDayKey(w) {
+  const code = String((w && w.winCode) || '');
+  const matched = code.match(/^(\d{4})-(\d+)$/);
+  if (matched) return matched[1];
+  const ts = parseLooseDate((w && (w.iso || w.time)) || '');
+  return mmddOf(ts ? new Date(ts) : new Date());
+}
+
+function decorateWinCodes(list) {
+  const byDay = {};
+  (list || []).forEach(w => {
+    const day = recordDayKey(w);
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(w);
+  });
+  Object.keys(byDay).forEach(day => {
+    const arr = byDay[day].slice().sort((a, b) => (parseLooseDate(a.iso || a.time) || 0) - (parseLooseDate(b.iso || b.time) || 0));
+    const used = {};
+    arr.forEach(w => {
+      const matched = String(w.winCode || '').match(/^(\d{4})-(\d+)$/);
+      if (matched && matched[1] === day) used[Number(matched[2])] = true;
+    });
+    let n = 1;
+    arr.forEach(w => {
+      if (w.winCode) {
+        w._code = w.winCode;
+        return;
+      }
+      while (used[n]) n += 1;
+      w._code = day + '-' + n;
+      used[n] = true;
+      n += 1;
+    });
+  });
+}
+
+function allocWinCode() {
+  const day = mmddOf(new Date());
+  const existing = winners.filter(w => recordDayKey(w) === day).length;
+  if (!(db && isFirebaseReady)) return Promise.resolve(day + '-' + (existing + 1));
+  return db.ref('winSeq/' + day).transaction(cur => {
+    if (cur == null) return existing + 1;
+    return Number(cur) + 1;
+  }).then(res => {
+    const n = (res && res.snapshot && res.snapshot.val()) || (existing + 1);
+    return day + '-' + n;
+  }).catch(() => day + '-' + (existing + 1));
+}
+
 function finishSpin(prize) {
   isSpinning = false;
 
-  // 记录中奖
   const isWin = prize.name !== '谢谢参与' && (Number(prize.weight) || 0) > 0;
-  const record = {
-    id: currentUser.id,
-    name: currentUser.name,
-    prizeName: prize.name,
-    prizeAmount: prize.amount || '',
-    time: new Date().toLocaleString('zh-CN', { hour12: false }),
-    iso: new Date().toISOString(),
-    dept: currentDept().name,
-    isWin
-  };
+  allocWinCode().then(winCode => {
+    const record = {
+      id: currentUser.id,
+      name: currentUser.name,
+      prizeName: prize.name,
+      prizeAmount: prize.amount || '',
+      time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      iso: new Date().toISOString(),
+      dept: currentDept().name,
+      winCode,
+      isWin
+    };
 
-  if (db && isFirebaseReady) {
-    // 用 push 保证唯一，再限制长度
-    const winnersRef = db.ref('winners');
-    winnersRef.push(record).then(() => {
-      // 可选：限制最多保留 200 条（简单做法是定期清理，这里先不强制）
-    });
-  } else {
-    winners.unshift(record);
-    if (winners.length > 200) winners.length = 200;
-    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
-  }
+    if (db && isFirebaseReady) {
+      db.ref('winners').push(record);
+    } else {
+      winners.unshift(record);
+      if (winners.length > 200) winners.length = 200;
+      localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
+    }
 
-  updateSpinButton();
-  renderSidePanel();
-  showResult(prize);
+    updateSpinButton();
+    renderSidePanel();
+    showResult(prize, record);
+  });
 }
 
 function updateSpinButton() {
@@ -3037,12 +3122,15 @@ function collectStarSettings() {
   }
 }
 
-function showResult(prize) {
+function showResult(prize, record) {
   const isThanks = prize.name === '谢谢参与' || !prize.amount;
+  const info = record || {};
   document.getElementById('resultTitle').textContent = isThanks ? '谢谢参与' : '🎉 恭喜中奖！';
+  document.getElementById('resultDept').textContent = '宠爱宝贝专属 · ' + (info.dept || currentDept().name);
   document.getElementById('resultPrizeName').textContent = prize.name;
   document.getElementById('resultPrizeDesc').textContent = prize.desc || '';
   document.getElementById('resultPrizeAmount').textContent = prize.amount || '';
+  document.getElementById('resultCode').textContent = '中奖编码 ' + (info.winCode || '');
 
   const img = document.getElementById('resultImg');
   if (prize.image) {
@@ -3117,13 +3205,14 @@ function renderSidePanel() {
   document.getElementById('participantCount').innerHTML = `${count} <span>人</span>`;
 
   const winList = document.getElementById('winnerList');
+  decorateWinCodes(winners);
   const realWins = winners.filter(w => w.isWin !== false && w.prizeName !== '谢谢参与').slice(0, 15);
   if (realWins.length === 0) {
     winList.innerHTML = '<div class="empty-tip">暂无中奖记录</div>';
   } else {
     winList.innerHTML = realWins.map((w, i) => `
       <div class="winner-item${i === 0 ? ' latest' : ''}">
-        <span class="name">${escapeHtml(w.name)}</span>
+        <span class="name">${escapeHtml(w.name)} · ${escapeHtml(w._code || w.winCode || '')}</span>
         <span class="prize">${escapeHtml(w.prizeName)}</span>
       </div>`).join('');
   }
@@ -3476,9 +3565,10 @@ function renderWinnerTable() {
   const keyword = ((document.getElementById('partSearch') && document.getElementById('partSearch').value) || '').trim().toLowerCase();
   const list = winners.filter(w => !keyword || String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword));
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-tip">${keyword ? '没有符合的中奖记录' : '暂无记录'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-tip">${keyword ? '没有符合的中奖记录' : '暂无记录'}</td></tr>`;
     return;
   }
+  decorateWinCodes(list);
   const prevMap = previousSpinMap();
   tbody.innerHTML = list.map((w, i) => {
     const user = participants[w.id];
@@ -3486,6 +3576,8 @@ function renderWinnerTable() {
     return `
     <tr>
       <td><input type="checkbox" class="chk-win" value="${escapeHtml(w._key || String(i))}"></td>
+      <td>${escapeHtml(w._code || w.winCode || '')}</td>
+      <td>${escapeHtml(w.dept || currentDept().name)}</td>
       <td>${escapeHtml(w.id)}</td>
       <td>${escapeHtml(w.name)}</td>
       <td>${left === '-' ? '-' : left + ' 次'}</td>
@@ -3708,12 +3800,13 @@ function exportWinners() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,平台账号,剩余次数,奖品,金额,本次抽奖时间,上次抽奖时间\n';
+  let csv = '中奖编码,入口,宠爱ID,平台账号,剩余次数,奖品,金额,本次抽奖时间,上次抽奖时间\n';
   const prevMap = previousSpinMap();
+  decorateWinCodes(winners);
   winners.forEach(w => {
     const user = participants[w.id];
     const left = user ? getRemaining(user) : '';
-    csv += `${w.id},${w.name},${left},${w.prizeName || ''},${w.prizeAmount || ''},${w.time || ''},${prevMap.get(w) || ''}\n`;
+    csv += `${w._code || w.winCode || ''},${w.dept || currentDept().name},${w.id},${w.name},${left},${w.prizeName || ''},${w.prizeAmount || ''},${w.time || ''},${prevMap.get(w) || ''}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
