@@ -1,18 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="booting">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- ios-refresh-2142 -->
 <title>幸运钻石转盘 · 云端同步版</title>
-<!-- Firebase SDK (compat 方便单文件使用) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<style>
+<style id="appCss" media="not all">
   :root {
     --blue-deep: #5c3d78;
     --blue-main: #7a4e9a;
@@ -317,7 +313,7 @@
     border-left: 18px solid transparent;
     border-right: 18px solid transparent;
     border-top: 36px solid #ff6fae;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    filter: none;
     z-index: 10;
   }
 
@@ -704,22 +700,6 @@
     overflow: hidden;
   }
 
-  .modal.win-modal::before {
-    content: "";
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 60%);
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-  }
-
   .modal h2 {
     font-size: 26px;
     margin-bottom: 16px;
@@ -1021,6 +1001,35 @@
   .dept-chip.on { background:#A94064; color:#fff; border-color:#A94064; }
   .dept-note { font-size:13px; color:#A94064; text-align:center; margin:4px 0 8px; }
 </style>
+<style>
+  html.booting body { margin: 0; padding: 16px; font-family: sans-serif; background: #fff7fb; color: #A94064; }
+  html.booting #lotteryPage,
+  html.booting #adminPage,
+  html.booting .modal-overlay,
+  html.booting .toast,
+  html.booting #setupHint,
+  html.booting #closedCard { display: none; }
+  html.booting #entryPage { display: block; max-width: 420px; margin: 0 auto; }
+  html.booting #joinCard input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 18px;
+    padding: 14px;
+    margin: 8px 0 14px;
+    color: #222;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  html.booting #joinCard button,
+  html.booting .dept-chip {
+    font-size: 18px;
+    padding: 14px 20px;
+    margin-top: 8px;
+  }
+  html.booting #joinCard .btn-primary { width: 100%; }
+</style>
 </head>
 <body>
 
@@ -1038,7 +1047,7 @@
     <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <div class="dept-switch"></div>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
-    <p style="margin-top:4px;font-size:12px;color:#A94064;">版本 15</p>
+    <p style="margin-top:4px;font-size:16px;color:#A94064;">版本 16</p>
   </div>
 
   <!-- 未开放提示 -->
@@ -1057,13 +1066,13 @@
     <h2>参与抽奖</h2>
     <div class="form-group">
       <label>宠爱ID</label>
-      <input type="text" id="inputId" inputmode="numeric" pattern="[0-9]{8}" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
+      <input type="text" id="inputId" placeholder="请输入8位数字宠爱ID" maxlength="8" autocomplete="off">
     </div>
     <div class="form-group">
       <label>平台账号</label>
       <input type="text" id="inputName" placeholder="请输入平台账号" maxlength="30" autocomplete="off">
     </div>
-    <button class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
+    <button type="button" class="btn btn-primary" onclick="joinLottery()">进入抽奖页面</button>
     <div class="admin-link">
       <button type="button" onclick="showPasswordModal()">主办人设置 ▸</button>
     </div>
@@ -1589,7 +1598,7 @@ function paintDept() {
   document.querySelectorAll('.dept-switch').forEach(box => {
     box.innerHTML = DEPT_LIST.map(item => {
       const on = item.key === d.key ? ' on' : '';
-      return `<a class="dept-chip${on}" href="${deptUrl(item)}">${item.name}</a>`;
+      return `<button type="button" class="dept-chip${on}" onclick="location.href='${deptUrl(item)}'">${item.name}</button>`;
     }).join('');
   });
   const box = document.getElementById('deptLinks');
@@ -1865,8 +1874,59 @@ function inRange(ts, fromVal, toVal) {
   return true;
 }
 
+function enableAppCss() {
+  const css = document.getElementById('appCss');
+  if (css) css.media = 'all';
+  document.documentElement.classList.remove('booting');
+}
+
+function bootFirebase() {
+  if (window.firebase && isFirebaseReady) return Promise.resolve();
+  if (window._bootPromise) return window._bootPromise;
+  window._bootPromise = new Promise((resolve, reject) => {
+    function waitReady() {
+      const start = Date.now();
+      (function tick() {
+        if (window._sessionTried || Date.now() - start > 8000) resolve();
+        else setTimeout(tick, 50);
+      })();
+    }
+    function loadDb() {
+      const b = document.createElement('script');
+      b.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
+      b.onload = function () { initFirebase(); waitReady(); };
+      b.onerror = reject;
+      document.head.appendChild(b);
+    }
+    if (window.firebase) { loadDb(); return; }
+    const a = document.createElement('script');
+    a.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+    a.onload = loadDb;
+    a.onerror = reject;
+    document.head.appendChild(a);
+  });
+  return window._bootPromise;
+}
+
 /* ==================== 入口 ==================== */
 function joinLottery() {
+  if (window._firebaseBooted !== 'yes') {
+    if (window._firebaseBooted === 'pending') return;
+    window._firebaseBooted = 'pending';
+    const btn = document.querySelector('#joinCard button.btn-primary');
+    if (btn) btn.textContent = '连接中...';
+    bootFirebase().then(() => {
+      window._firebaseBooted = 'yes';
+      if (btn) btn.textContent = '进入抽奖页面';
+      enableAppCss();
+      joinLottery();
+    }).catch(() => {
+      window._firebaseBooted = '';
+      if (btn) btn.textContent = '进入抽奖页面';
+      alert('连接失败，请重试');
+    });
+    return;
+  }
   if (!isLotteryOpen()) {
     showToast('抽奖尚未开启，请等待开放时间');
     updateEntryUI();
@@ -1986,6 +2046,7 @@ function tryRestoreSession() {
 }
 
 function showPage(page) {
+  if (page !== 'entry') enableAppCss();
   document.getElementById('entryPage').style.display = page === 'entry' ? 'block' : 'none';
   document.getElementById('lotteryPage').style.display = page === 'lottery' ? 'block' : 'none';
   document.getElementById('adminPage').style.display = page === 'admin' ? 'block' : 'none';
@@ -3171,10 +3232,13 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
-  closeEntryPopup();
-  document.getElementById('adminPasswordInput').value = '';
-  document.getElementById('passwordModal').classList.add('show');
-  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+  enableAppCss();
+  bootFirebase().then(() => {
+    closeEntryPopup();
+    document.getElementById('adminPasswordInput').value = '';
+    document.getElementById('passwordModal').classList.add('show');
+    setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+  });
 }
 
 function closePasswordModal() {
@@ -4201,8 +4265,7 @@ document.addEventListener('input', function (e) {
   }
 });
 
-// 启动
-initFirebase();
+// 启动。先不要连云端，避免手机一打开就点不到输入框。
 paintDept();
 
 // 每 30 秒检查一次是否到了开放时间（自动切换界面）
