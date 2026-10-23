@@ -321,7 +321,7 @@
     position: relative;
     width: 420px;
     height: 420px;
-    margin: 10px 0 24px;
+    margin: 10px 0 12px;
   }
 
   @media (max-width: 500px) {
@@ -384,6 +384,7 @@
     box-shadow: 0 10px 30px rgba(230,57,70,0.5);
     border: 2px solid rgba(255,255,255,0.2);
     letter-spacing: 3px;
+    margin-top: 4px;
   }
 
   .spin-btn:hover:not(:disabled) {
@@ -1161,6 +1162,9 @@
         <canvas id="wheelCanvas" width="420" height="420"></canvas>
       </div>
 
+      <button class="btn spin-btn" id="spinBtn" onclick="startSpin()">开始抽奖</button>
+      <div class="spin-status" id="spinStatus"></div>
+
       <div class="panel-card checkin-card" id="checkinBox">
         <div class="checkin-head">
           <h3>每日签到</h3>
@@ -1178,9 +1182,6 @@
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-detail" id="calDetail">点击金色日期可查看签到时间</div>
       </div>
-
-      <button class="btn spin-btn" id="spinBtn" onclick="startSpin()">开始抽奖</button>
-      <div class="spin-status" id="spinStatus"></div>
     </div>
 
     <div class="side-panel">
@@ -1233,6 +1234,7 @@
     <button class="tab-btn" onclick="switchTab('prizes')">奖品管理</button>
     <button class="tab-btn" onclick="switchTab('winners')">抽奖与中奖</button>
     <button class="tab-btn" onclick="switchTab('settings')">转盘系统设置</button>
+    <button class="tab-btn" onclick="switchTab('popup')">弹窗设置</button>
     <button class="tab-btn" onclick="switchTab('checkins')">签到记录</button>
     <button class="tab-btn" onclick="switchTab('checkinSettings')">签到系统设置</button>
     <button class="tab-btn" onclick="switchTab('stars')">集星记录审核</button>
@@ -1242,8 +1244,8 @@
   <div id="tab-home" class="tab-content active">
     <div class="panel-card" style="max-width:760px;">
       <h3>会员查询</h3>
-      <p style="font-size:13px;color:#A94064;margin-bottom:10px;">输入宠爱ID或账号，列出近两周的抽奖、中奖和签到记录。</p>
-      <input type="search" id="homeSearch" placeholder="宠爱ID或账号" oninput="renderMemberHome()" style="width:100%; max-width:360px; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:16px;">
+      <p style="font-size:13px;color:#A94064;margin-bottom:10px;">输入宠爱ID、账号或抽奖编码，列出近两周记录。编码例如 1023-1。</p>
+      <input type="search" id="homeSearch" placeholder="宠爱ID、账号或抽奖编码" oninput="renderMemberHome()" style="width:100%; max-width:360px; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:16px;">
       <div id="homeSearchResult" style="margin-top:14px; font-size:14px; line-height:1.6; color:#A94064;"></div>
     </div>
   </div>
@@ -1259,7 +1261,7 @@
 
   <div id="tab-winners" class="tab-content">
     <div style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <input type="search" id="partSearch" placeholder="搜索宠爱ID或账号，查看完整记录" oninput="renderParticipantTable()" style="width:280px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:14px;">
+      <input type="search" id="partSearch" placeholder="搜索宠爱ID、账号或抽奖编码" oninput="renderParticipantTable()" style="width:280px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:14px;">
       <span id="partSearchCount" style="font-size:13px;color:#A94064;"></span>
       <button class="btn btn-secondary btn-sm" onclick="exportParticipants()">导出名单</button>
       <button class="btn btn-danger btn-sm" onclick="deleteSelectedParticipants()">删除勾选名单</button>
@@ -1274,7 +1276,7 @@
         <thead>
           <tr>
             <th style="width:42px;"><input type="checkbox" id="checkAllPart" onchange="toggleAllPart(this.checked)"></th>
-            <th>宠爱ID</th><th>平台账号</th><th>登入时间</th><th>本次抽奖时间</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
+            <th>宠爱ID</th><th>平台账号</th><th>登入时间</th><th>本次抽奖时间 / 抽奖编码</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
           </tr>
         </thead>
         <tbody id="participantTable"></tbody>
@@ -1442,10 +1444,22 @@
 
       <hr style="border:none; border-top:1px solid rgba(168,213,255,0.15); margin:20px 0;">
 
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存设置到云端</button>
+        <button class="btn btn-danger btn-sm" onclick="clearParticipants()">重置参与人数</button>
+        <button class="btn btn-danger btn-sm" onclick="resetAllData()">重置全部数据</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-popup" class="tab-content">
+    <div class="panel-card" style="max-width:520px;">
+      <h3>入口弹窗</h3>
+      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。会员打开这个入口时弹出。改完要点保存。</p>
       <div class="form-group">
-        <label>入口弹窗文案</label>
+        <label>弹窗文案</label>
         <textarea id="settingPopupText" rows="3" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid rgba(255,170,210,0.5); background:#fff; color:#A94064; font-size:14px;">欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。</textarea>
-        <p style="font-size:12px; color:#A94064; margin-top:6px;">会员打开这个入口时会弹出。{入口} 会自动换成当前名字，例如星辰。</p>
+        <p style="font-size:12px; color:#A94064; margin-top:6px;">{入口} 会自动换成当前名字，例如星辰、星耀。</p>
       </div>
       <div class="form-group">
         <label>弹窗背景色</label>
@@ -1457,13 +1471,9 @@
         <img id="settingPopupPreview" alt="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:12px; margin-top:8px;">
         <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="clearPopupBg()">清除背景图</button>
       </div>
-
-      <hr style="border:none; border-top:1px solid rgba(168,213,255,0.15); margin:20px 0;">
-
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存设置到云端</button>
-        <button class="btn btn-danger btn-sm" onclick="clearParticipants()">重置参与人数</button>
-        <button class="btn btn-danger btn-sm" onclick="resetAllData()">重置全部数据</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存弹窗到云端</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览弹窗</button>
       </div>
     </div>
   </div>
@@ -3385,12 +3395,15 @@ function renderMemberHome() {
     box.textContent = '请输入宠爱ID或账号';
     return;
   }
+  decorateWinCodes(winners);
   const people = Object.values(participants).filter(p =>
-    String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword)
+    String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword) || memberHasCode(p.id, keyword)
   );
   const extraIds = {};
   winners.forEach(w => {
-    if ((String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword)) && !people.some(p => p.id === w.id)) {
+    const code = String(w._code || w.winCode || '').toLowerCase();
+    const hit = String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword) || code.includes(keyword);
+    if (hit && !people.some(p => String(p.id) === String(w.id))) {
       extraIds[w.id] = { id: w.id, name: w.name || w.id };
     }
   });
@@ -3411,8 +3424,8 @@ function renderMemberHome() {
     if (typeof getRemaining === 'function' && participants[p.id]) {
       lines.push(`今日抽奖：已用 ${getTodaySpins(p)} / 配额 ${getQuota(p.id)}，剩余 ${getRemaining(p)} 次`);
     }
-    const wins = winners.filter(w => w.id === p.id && withinTwoWeeks(parseLooseDate(w.time)));
-    wins.forEach(w => lines.push(`中奖 ${escapeHtml(w.time || '')}　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
+    const wins = winners.filter(w => String(w.id) === String(p.id) && (withinTwoWeeks(parseLooseDate(w.time)) || String(w._code || w.winCode || '').toLowerCase().includes(keyword)));
+    wins.forEach(w => lines.push(`中奖编码 ${escapeHtml(w._code || w.winCode || '')}　${escapeHtml(w.time || '')}　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
     const signs = checkins.filter(c => c.id === p.id && withinTwoWeeks(parseLooseDate(c.date || c.time)));
     signs.forEach(c => lines.push(`签到 ${escapeHtml(c.date || '')} ${escapeHtml(c.time || '')}　连续 ${c.streak || 1} 天`));
     if (!wins.length && !signs.length) lines.push('近两周没有中奖或签到记录');
@@ -3425,18 +3438,36 @@ function renderMemberHome() {
   }).join('');
 }
 
-function latestSpinTime(id) {
+function latestSpin(id) {
+  decorateWinCodes(winners);
   let bestTs = -1;
-  let best = '';
+  let best = null;
   winners.forEach(w => {
     if (String(w.id) !== String(id)) return;
     const ts = parseLooseDate(w.iso || w.time) || 0;
     if (ts >= bestTs) {
       bestTs = ts;
-      best = w.time || '';
+      best = w;
     }
   });
-  return best || '-';
+  return best;
+}
+
+function latestSpinTime(id) {
+  const w = latestSpin(id);
+  return w ? (w.time || '-') : '-';
+}
+
+function latestSpinLabel(id) {
+  const w = latestSpin(id);
+  if (!w) return '-';
+  const code = w._code || w.winCode || '';
+  return `${escapeHtml(w.time || '-')}<br><b>${escapeHtml(code)}</b>`;
+}
+
+function memberHasCode(id, keyword) {
+  if (!keyword) return false;
+  return winners.some(w => String(w.id) === String(id) && String(w._code || w.winCode || '').toLowerCase().includes(keyword));
 }
 
 function toggleWinRecords(keyword) {
@@ -3450,8 +3481,9 @@ function renderParticipantTable() {
   const tbody = document.getElementById('participantTable');
   const keyword = ((document.getElementById('partSearch') && document.getElementById('partSearch').value) || '').trim().toLowerCase();
   let list = Object.values(participants);
+  decorateWinCodes(winners);
   if (keyword) {
-    list = list.filter(p => String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword));
+    list = list.filter(p => String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword) || memberHasCode(p.id, keyword));
   }
   list.sort((a, b) => {
     const ra = getRemaining(a) > 0 ? 0 : 1;
@@ -3481,7 +3513,7 @@ function renderParticipantTable() {
       <td>${escapeHtml(p.id)}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.loginTime || p.joinTime || '')}</td>
-      <td>${escapeHtml(latestSpinTime(p.id))}</td>
+      <td>${latestSpinLabel(p.id)}</td>
       <td>${status}</td>
       <td>${bag.total}</td>
       <td>${todayStars}/${getStarTasks().length}</td>
@@ -3530,10 +3562,12 @@ function exportParticipants() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间,今日已抽,配额,剩余,累计星星,今日集星\n';
+  let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间,抽奖编码,今日已抽,配额,剩余,累计星星,今日集星\n';
+  decorateWinCodes(winners);
   list.forEach(p => {
     const bag = starBag(p);
-    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${latestSpinTime(p.id)},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
+    const spin = latestSpin(p.id);
+    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${spin ? (spin.time || '') : ''},${spin ? (spin._code || spin.winCode || '') : ''},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -3563,12 +3597,12 @@ function previousSpinMap() {
 function renderWinnerTable() {
   const tbody = document.getElementById('winnerTable');
   const keyword = ((document.getElementById('partSearch') && document.getElementById('partSearch').value) || '').trim().toLowerCase();
-  const list = winners.filter(w => !keyword || String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword));
+  decorateWinCodes(winners);
+  const list = winners.filter(w => !keyword || String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword) || String(w._code || w.winCode || '').toLowerCase().includes(keyword));
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" class="empty-tip">${keyword ? '没有符合的中奖记录' : '暂无记录'}</td></tr>`;
     return;
   }
-  decorateWinCodes(list);
   const prevMap = previousSpinMap();
   tbody.innerHTML = list.map((w, i) => {
     const user = participants[w.id];
@@ -3933,6 +3967,16 @@ function showEntryPopup() {
   if (!el || window._entryPopupShown) return;
   el.classList.add('show');
   window._entryPopupShown = true;
+}
+
+function previewEntryPopup() {
+  const textEl = document.getElementById('settingPopupText');
+  const colorEl = document.getElementById('settingPopupColor');
+  if (textEl) settings.popupText = textEl.value.trim() || settings.popupText;
+  if (colorEl) settings.popupBgColor = colorEl.value || settings.popupBgColor;
+  applyEntryPopup();
+  const el = document.getElementById('entryPopup');
+  if (el) el.classList.add('show');
 }
 
 function closeEntryPopup() {
