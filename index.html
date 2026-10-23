@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- ios-refresh-2142 -->
+<!-- ios-tap-2148 -->
 <title>幸运钻石转盘 · 云端同步版</title>
 <!-- Firebase SDK (compat 方便单文件使用) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -89,17 +89,13 @@
 
   /* ===== 入口页 ===== */
   #entryPage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100vh - 52px);
-    padding: 20px;
+    display: block;
+    padding: 12px 16px 48px;
   }
 
   .logo-area {
     text-align: center;
-    margin-bottom: 40px;
+    margin: 0 auto 24px;
   }
 
   .logo-icon {
@@ -131,14 +127,16 @@
   }
 
   .entry-card {
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(16px);
+    background: rgba(255,255,255,0.96);
     border: 1px solid rgba(255,170,210,0.4);
     border-radius: 24px;
     padding: 40px 48px;
     width: 100%;
     max-width: 420px;
+    margin: 0 auto 16px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    position: relative;
+    z-index: 2;
   }
 
   .entry-card h2 {
@@ -169,7 +167,9 @@
     color: #A94064;
     font-size: 16px;
     outline: none;
-    transition: border-color 0.25s, box-shadow 0.25s;
+    position: relative;
+    z-index: 3;
+    touch-action: manipulation;
   }
 
   .form-group input:focus {
@@ -203,14 +203,12 @@
     background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
     color: white;
     box-shadow: 0 8px 24px rgba(230,57,70,0.4);
+    touch-action: manipulation;
+    position: relative;
+    z-index: 3;
   }
 
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(230,57,70,0.55);
-  }
-
-  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:active { opacity: 0.9; }
 
   .btn-secondary {
     background: rgba(255,255,255,0.1);
@@ -716,10 +714,6 @@
   .modal-overlay.show {
     display: flex;
     pointer-events: auto;
-  }
-
-  @media (hover: none) {
-    .btn-primary:hover { transform: none; }
   }
 
   .modal {
