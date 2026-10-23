@@ -722,20 +722,6 @@
     .btn-primary:hover { transform: none; }
   }
 
-  .entry-notice {
-    margin: 0 auto 16px;
-    text-align: center;
-    position: relative;
-    z-index: 2;
-  }
-  .entry-notice p {
-    font-size: 16px;
-    line-height: 1.7;
-    font-weight: 700;
-    color: #A94064;
-    margin-bottom: 14px;
-  }
-
   .modal {
     background: linear-gradient(160deg, #1a3a6e 0%, #0a1f44 100%);
     border: 1px solid rgba(168,213,255,0.35);
@@ -1089,11 +1075,6 @@
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
   </div>
 
-  <div id="entryPopup" class="entry-card entry-notice" style="display:none;">
-    <p id="entryPopupText">欢迎进入宠爱转盘，请确认当前转盘入口是正确的。</p>
-    <button type="button" class="btn btn-primary" id="entryPopupClose" onclick="closeEntryPopup()" ontouchend="closeEntryPopup()">我知道了</button>
-  </div>
-
   <!-- 未开放提示 -->
   <div id="closedCard" class="entry-card" style="display:none; text-align:center;">
     <h2 style="color:#ffd700;">⏳ 抽奖尚未开启</h2>
@@ -1240,7 +1221,6 @@
     <button class="tab-btn" onclick="switchTab('prizes')">奖品管理</button>
     <button class="tab-btn" onclick="switchTab('winners')">抽奖与中奖</button>
     <button class="tab-btn" onclick="switchTab('settings')">转盘系统设置</button>
-    <button class="tab-btn" onclick="switchTab('popup')">弹窗设置</button>
     <button class="tab-btn" onclick="switchTab('checkins')">签到记录</button>
     <button class="tab-btn" onclick="switchTab('checkinSettings')">签到系统设置</button>
     <button class="tab-btn" onclick="switchTab('stars')">集星记录审核</button>
@@ -1457,33 +1437,6 @@
       </div>
     </div>
   </div>
-
-  <div id="tab-popup" class="tab-content">
-    <div class="panel-card" style="max-width:520px;">
-      <h3>入口弹窗</h3>
-      <p style="font-size:13px; color:#A94064; margin-bottom:12px;">只作用于当前入口。提示会出现在入口页上方，不会挡住页面。点「我知道了」或点页面其他地方都会关掉。</p>
-      <div class="form-group">
-        <label>弹窗文案</label>
-        <textarea id="settingPopupText" rows="3" style="width:100%; min-height:80px; padding:10px; border-radius:8px; border:1px solid rgba(255,170,210,0.5); background:#fff; color:#A94064; font-size:14px;">欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。</textarea>
-        <p style="font-size:12px; color:#A94064; margin-top:6px;">{入口} 会自动换成当前名字，例如星辰、星耀。</p>
-      </div>
-      <div class="form-group">
-        <label>弹窗背景色</label>
-        <input type="color" id="settingPopupColor" value="#fff7fb">
-      </div>
-      <div class="form-group">
-        <label>弹窗背景图</label>
-        <input type="file" id="settingPopupBg" accept="image/*" onchange="handlePopupBg(event)">
-        <img id="settingPopupPreview" alt="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:12px; margin-top:8px;">
-        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="clearPopupBg()">清除背景图</button>
-      </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 保存弹窗到云端</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="previewEntryPopup()">预览文案</button>
-      </div>
-      <div id="popupLivePreview" style="display:none; margin-top:14px; padding:14px; border-radius:14px; background:#fff7fb; color:#A94064; font-weight:700; line-height:1.7;"></div>
-    </div>
-  </div>
 </div>
 
 <!-- 密码弹窗 -->
@@ -1569,9 +1522,6 @@ const DEFAULT_SETTINGS = {
   checkin3Text: '连续签到 3 天额外次数',
   checkin7Text: '连续签到 7 天额外次数',
   checkinHint: '每天只能签到 1 次。中断一天连续天数归 1。满 7 天后从 1 重新计。',
-  popupText: '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。',
-  popupBg: '',
-  popupBgColor: '#fff7fb',
   starTasks: [
     { key:'signin', name:'每日签到', desc:'完成今日签到' },
     { key:'interact', name:'互动任务', desc:'与维护互动一次' },
@@ -1654,7 +1604,6 @@ function paintDept() {
       return `<div>${item.name}${mark}：<a href="${url}" style="color:#A94064;">${url}</a></div>`;
     }).join('');
   }
-  showEntryPopup();
 }
 
 /* ==================== Firebase 初始化 ==================== */
@@ -1800,7 +1749,6 @@ function initFirebase() {
       updateEntryUI();
       renderStarPanel();
       renderStarAdmin();
-      showEntryPopup();
       if (document.getElementById('adminPage').style.display !== 'none') renderParticipantTable();
     });
 
@@ -3227,7 +3175,6 @@ function renderSidePanel() {
 
 /* ==================== 管理后台 ==================== */
 function showPasswordModal() {
-  closeEntryPopup();
   document.getElementById('adminPasswordInput').value = '';
   document.getElementById('passwordModal').classList.add('show');
   setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
@@ -3906,21 +3853,6 @@ function loadSettingsForm() {
   const lines = Object.keys(quota).map(id => `${id} ${quota[id]}`);
   const quotaEl = document.getElementById('settingQuotaText');
   if (quotaEl) quotaEl.value = lines.join('\n');
-  const popupText = document.getElementById('settingPopupText');
-  if (popupText && document.activeElement !== popupText) {
-    popupText.value = settings.popupText || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
-  }
-  const popupColor = document.getElementById('settingPopupColor');
-  if (popupColor && document.activeElement !== popupColor) popupColor.value = settings.popupBgColor || '#fff7fb';
-  const popupPreview = document.getElementById('settingPopupPreview');
-  if (popupPreview) {
-    if (settings.popupBg) {
-      popupPreview.src = settings.popupBg;
-      popupPreview.style.display = 'block';
-    } else {
-      popupPreview.style.display = 'none';
-    }
-  }
 
   // 处理开放时间回填（datetime-local 需要本地格式 YYYY-MM-DDTHH:mm）
   const ot = settings.openTime || '';
@@ -3941,95 +3873,6 @@ function loadSettingsForm() {
     input.value = '';
   }
   renderStarAdmin();
-}
-
-function popupMessage() {
-  const name = currentDept().name;
-  const tpl = settings.popupText || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
-  return String(tpl).replace(/\{入口\}/g, name);
-}
-
-function applyEntryPopup() {
-  const card = document.getElementById('entryPopup');
-  const text = document.getElementById('entryPopupText');
-  if (!card || !text) return;
-  text.textContent = popupMessage();
-  card.style.backgroundColor = settings.popupBgColor || '#fff';
-  card.style.backgroundImage = settings.popupBg ? 'url("' + String(settings.popupBg).replace(/"/g, '') + '")' : 'none';
-  card.style.backgroundSize = 'cover';
-  card.style.backgroundPosition = 'center';
-}
-
-function showEntryPopup() {
-  const el = document.getElementById('entryPopup');
-  if (!el) return;
-  applyEntryPopup();
-  if (window._entryPopupShown) return;
-  el.style.display = 'block';
-  window._entryPopupShown = true;
-}
-
-function previewEntryPopup() {
-  const textEl = document.getElementById('settingPopupText');
-  const colorEl = document.getElementById('settingPopupColor');
-  if (textEl) settings.popupText = textEl.value.trim() || settings.popupText;
-  if (colorEl) settings.popupBgColor = colorEl.value || settings.popupBgColor;
-  applyEntryPopup();
-  const box = document.getElementById('popupLivePreview');
-  if (box) {
-    box.style.display = 'block';
-    box.textContent = popupMessage();
-    box.style.backgroundColor = settings.popupBgColor || '#fff7fb';
-  }
-}
-
-function closeEntryPopup() {
-  const el = document.getElementById('entryPopup');
-  if (el) el.style.display = 'none';
-}
-
-document.addEventListener('click', function (e) {
-  const el = document.getElementById('entryPopup');
-  if (!el || el.style.display === 'none') return;
-  if (e.target && e.target.closest && e.target.closest('#entryPopup')) return;
-  closeEntryPopup();
-});
-document.addEventListener('touchend', function (e) {
-  const el = document.getElementById('entryPopup');
-  if (!el || el.style.display === 'none') return;
-  if (e.target && e.target.closest && e.target.closest('#entryPopup')) return;
-  closeEntryPopup();
-}, { passive: true });
-
-function handlePopupBg(e) {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-  if (file.size > 400 * 1024) {
-    showToast('背景图请小于 400KB');
-    e.target.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = function (ev) {
-    settings.popupBg = ev.target.result;
-    const img = document.getElementById('settingPopupPreview');
-    if (img) {
-      img.src = settings.popupBg;
-      img.style.display = 'block';
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-function clearPopupBg() {
-  settings.popupBg = '';
-  const img = document.getElementById('settingPopupPreview');
-  if (img) {
-    img.removeAttribute('src');
-    img.style.display = 'none';
-  }
-  const input = document.getElementById('settingPopupBg');
-  if (input) input.value = '';
 }
 
 function saveSettings() {
@@ -4062,10 +3905,6 @@ function saveSettings() {
     }
   });
   settings.customQuota = customQuota;
-  const popupTextEl = document.getElementById('settingPopupText');
-  settings.popupText = (popupTextEl && popupTextEl.value.trim()) || '欢迎进入「{入口}」宠爱转盘，请确认当前转盘入口是正确的。';
-  const popupColorEl = document.getElementById('settingPopupColor');
-  settings.popupBgColor = (popupColorEl && popupColorEl.value) || '#fff7fb';
 
   const localVal = document.getElementById('settingOpenTime').value;
   if (localVal) {
