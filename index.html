@@ -938,6 +938,10 @@
     border-bottom: 1px solid rgba(168,213,255,0.12);
   }
 
+  .win-code {
+    font-weight: 800;
+  }
+
   th {
     color: var(--diamond);
     font-weight: 600;
@@ -2229,12 +2233,21 @@ function latestWinOf(id) {
   return best;
 }
 
-function formatSpinCell(w) {
+function formatSpinPlain(w) {
   if (!w) return '-';
   const time = w.time || '';
   const code = w.winCode || '';
   if (time && code) return time + ' / ' + code;
   return time || code || '-';
+}
+
+function formatSpinCell(w) {
+  if (!w) return '-';
+  const time = escapeHtml(w.time || '');
+  const code = escapeHtml(w.winCode || '');
+  if (time && code) return time + ' / <b class="win-code">' + code + '</b>';
+  if (code) return '<b class="win-code">' + code + '</b>';
+  return time || '-';
 }
 
 function keywordHit(keyword, value) {
@@ -3072,7 +3085,7 @@ function showResult(prize, code) {
   document.getElementById('resultPrizeName').textContent = prize.name;
   document.getElementById('resultPrizeDesc').textContent = prize.desc || '';
   document.getElementById('resultPrizeAmount').textContent = prize.amount || '';
-  document.getElementById('resultCode').textContent = code ? ('抽奖编码 ' + code) : '';
+  document.getElementById('resultCode').innerHTML = code ? ('抽奖编码 <b class="win-code">' + escapeHtml(code) + '</b>') : '';
 
   const img = document.getElementById('resultImg');
   if (prize.image) {
@@ -3349,7 +3362,7 @@ function renderMemberHome() {
       lines.push(`今日抽奖：已用 ${getTodaySpins(p)} / 配额 ${getQuota(p.id)}，剩余 ${getRemaining(p)} 次`);
     }
     const wins = winners.filter(w => String(w.id) === String(p.id) && (withinTwoWeeks(parseLooseDate(w.time)) || keywordHit(keyword, w.winCode)));
-    wins.forEach(w => lines.push(`中奖 ${escapeHtml(w.time || '')}　编码 ${escapeHtml(w.winCode || '-')}　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
+    wins.forEach(w => lines.push(`中奖 ${escapeHtml(w.time || '')}　编码 <b class="win-code">${escapeHtml(w.winCode || '-')}</b>　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
     const signs = checkins.filter(c => c.id === p.id && withinTwoWeeks(parseLooseDate(c.date || c.time)));
     signs.forEach(c => lines.push(`签到 ${escapeHtml(c.date || '')} ${escapeHtml(c.time || '')}　连续 ${c.streak || 1} 天`));
     if (!wins.length && !signs.length) lines.push('近两周没有中奖或签到记录');
@@ -3421,7 +3434,7 @@ function renderParticipantTable() {
       <td>${escapeHtml(p.id)}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.loginTime || p.joinTime || '')}</td>
-      <td>${escapeHtml(formatSpinCell(latestWinOf(p.id)))}</td>
+      <td>${formatSpinCell(latestWinOf(p.id))}</td>
       <td>${status}</td>
       <td>${bag.total}</td>
       <td>${todayStars}/${getStarTasks().length}</td>
@@ -3473,7 +3486,7 @@ function exportParticipants() {
   let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间 / 抽奖编码,今日已抽,配额,剩余,累计星星,今日集星\n';
   list.forEach(p => {
     const bag = starBag(p);
-    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${formatSpinCell(latestWinOf(p.id))},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
+    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${formatSpinPlain(latestWinOf(p.id))},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -3526,7 +3539,7 @@ function renderWinnerTable() {
       <td>${left === '-' ? '-' : left + ' 次'}</td>
       <td>${escapeHtml(w.prizeName)}</td>
       <td>${escapeHtml(w.prizeAmount || '-')}</td>
-      <td>${escapeHtml(formatSpinCell(w))}</td>
+      <td>${formatSpinCell(w)}</td>
       <td>${escapeHtml(prevMap.get(w) || '-')}</td>
     </tr>`;
   }).join('');
