@@ -1030,7 +1030,7 @@
   <div class="logo-area">
     <div class="logo-icon">💎</div>
     <h1>幸运钻石转盘</h1>
-    <p>办公室专属 · <span id="deptLabel">星际</span></p>
+    <p>宠爱宝贝专属 · <span id="deptLabel">星际</span></p>
     <p id="entryDate" style="margin-top:6px;font-size:14px;color:#A94064;"></p>
   </div>
 
@@ -1107,6 +1107,9 @@
         <canvas id="wheelCanvas" width="420" height="420"></canvas>
       </div>
 
+      <button class="btn spin-btn" id="spinBtn" onclick="startSpin()">开始抽奖</button>
+      <div class="spin-status" id="spinStatus"></div>
+
       <div class="panel-card checkin-card" id="checkinBox">
         <div class="checkin-head">
           <h3>每日签到</h3>
@@ -1124,9 +1127,6 @@
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-detail" id="calDetail">点击金色日期可查看签到时间</div>
       </div>
-
-      <button class="btn spin-btn" id="spinBtn" onclick="startSpin()">开始抽奖</button>
-      <div class="spin-status" id="spinStatus"></div>
     </div>
 
     <div class="side-panel">
@@ -1186,8 +1186,8 @@
   <div id="tab-home" class="tab-content active">
     <div class="panel-card" style="max-width:760px;">
       <h3>会员查询</h3>
-      <p style="font-size:13px;color:#A94064;margin-bottom:10px;">输入宠爱ID或账号，列出近两周的抽奖、中奖和签到记录。</p>
-      <input type="search" id="homeSearch" placeholder="宠爱ID或账号" oninput="renderMemberHome()" style="width:100%; max-width:360px; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:16px;">
+      <p style="font-size:13px;color:#A94064;margin-bottom:10px;">输入宠爱ID、平台账号或抽奖编码，例如 1024-1。</p>
+      <input type="search" id="homeSearch" placeholder="宠爱ID、账号或抽奖编码" oninput="renderMemberHome()" style="width:100%; max-width:360px; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:16px;">
       <div id="homeSearchResult" style="margin-top:14px; font-size:14px; line-height:1.6; color:#A94064;"></div>
     </div>
   </div>
@@ -1197,13 +1197,13 @@
     <div class="prize-admin-list" id="prizeAdminList"></div>
     <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" onclick="savePrizes()">💾 保存并同步到云端</button>
-      <span style="font-size:13px; color:#A94064; align-self:center;">几率按权重计算，建议总和方便查看</span>
+      <span style="font-size:13px; color:#A94064; align-self:center;">权重填 0 的奖品仍显示在转盘上，但不会被抽中。每个入口分开计算。</span>
     </div>
   </div>
 
   <div id="tab-winners" class="tab-content">
     <div style="margin-bottom:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-      <input type="search" id="partSearch" placeholder="搜索宠爱ID或账号，查看完整记录" oninput="renderParticipantTable()" style="width:280px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:14px;">
+      <input type="search" id="partSearch" placeholder="搜索宠爱ID、账号或抽奖编码" oninput="renderParticipantTable()" style="width:280px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,170,210,0.6); background:#fff; color:#A94064; font-size:14px;">
       <span id="partSearchCount" style="font-size:13px;color:#A94064;"></span>
       <button class="btn btn-secondary btn-sm" onclick="exportParticipants()">导出名单</button>
       <button class="btn btn-danger btn-sm" onclick="deleteSelectedParticipants()">删除勾选名单</button>
@@ -1218,7 +1218,7 @@
         <thead>
           <tr>
             <th style="width:42px;"><input type="checkbox" id="checkAllPart" onchange="toggleAllPart(this.checked)"></th>
-            <th>宠爱ID</th><th>平台账号</th><th>登入时间</th><th>本次抽奖时间</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
+            <th>宠爱ID</th><th>平台账号</th><th>登入时间</th><th>本次抽奖时间 / 抽奖编码</th><th>今日剩余</th><th>累计星星</th><th>今日集星</th>
           </tr>
         </thead>
         <tbody id="participantTable"></tbody>
@@ -1243,7 +1243,7 @@
           <thead>
             <tr>
               <th style="width:42px;"><input type="checkbox" id="checkAllWin" onchange="toggleAllWin(this.checked)"></th>
-              <th>宠爱ID</th><th>平台账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间</th><th>上次抽奖时间</th>
+              <th>宠爱ID</th><th>平台账号</th><th>剩余次数</th><th>奖品</th><th>金额</th><th>本次抽奖时间 / 抽奖编码</th><th>上次抽奖时间</th>
             </tr>
           </thead>
           <tbody id="winnerTable"></tbody>
@@ -1425,10 +1425,12 @@
 <div class="modal-overlay" id="resultModal" onclick="if(event.target===this) closeResultModal()">
   <div class="modal win-modal" id="resultModalContent">
     <h2 id="resultTitle">🎉 恭喜中奖！</h2>
+    <div class="prize-title" id="resultDeptLine"></div>
     <img id="resultImg" class="prize-img" src="" alt="" style="display:none;">
     <div class="prize-title" id="resultPrizeName"></div>
     <div class="prize-desc" id="resultPrizeDesc"></div>
     <div class="prize-amount" id="resultPrizeAmount"></div>
+    <div class="prize-amount" id="resultCode"></div>
     <button type="button" class="btn btn-primary" id="resultConfirmBtn">确定</button>
   </div>
 </div>
@@ -2003,15 +2005,16 @@ function drawWheel() {
 
 /* ==================== 抽奖逻辑 ==================== */
 function getWeightedPrize() {
-  const total = prizes.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
-  if (total <= 0) return prizes[prizes.length - 1];
+  const pool = prizes.filter(p => (Number(p.weight) || 0) > 0);
+  const total = pool.reduce((sum, p) => sum + (Number(p.weight) || 0), 0);
+  if (!pool.length || total <= 0) return null;
 
   let r = Math.random() * total;
-  for (const p of prizes) {
+  for (const p of pool) {
     r -= (Number(p.weight) || 0);
     if (r <= 0) return p;
   }
-  return prizes[prizes.length - 1];
+  return pool[pool.length - 1];
 }
 
 function startSpin() {
@@ -2024,12 +2027,16 @@ function startSpin() {
     showToast('暂无奖品，请联系主办人');
     return;
   }
+  const selected = getWeightedPrize();
+  if (!selected) {
+    showToast('权重都是 0，转盘上有奖品，但现在抽不中');
+    return;
+  }
 
   isSpinning = true;
   document.getElementById('spinBtn').disabled = true;
   document.getElementById('spinStatus').textContent = '转盘旋转中…';
 
-  const selected = getWeightedPrize();
   const index = prizes.findIndex(p => p.id === selected.id);
   const arc = (Math.PI * 2) / prizes.length;
 
@@ -2062,56 +2069,176 @@ function startSpin() {
 }
 
 function finishSpin(prize) {
-  isSpinning = false;
-  const day = todayStr();
-  if ((currentUser.lastDrawDate || '') !== day) {
-    currentUser.todaySpins = 0;
+  document.getElementById('spinStatus').textContent = '正在记录结果…';
+  allocateWinCode().then(code => {
+    isSpinning = false;
+    const day = todayStr();
+    if ((currentUser.lastDrawDate || '') !== day) {
+      currentUser.todaySpins = 0;
+      currentUser.lastDrawDate = day;
+    }
+    currentUser.todaySpins = (currentUser.todaySpins || 0) + 1;
+    currentUser.spinCount = (currentUser.spinCount || 0) + 1;
     currentUser.lastDrawDate = day;
-  }
-  currentUser.todaySpins = (currentUser.todaySpins || 0) + 1;
-  currentUser.spinCount = (currentUser.spinCount || 0) + 1;
-  currentUser.lastDrawDate = day;
 
-  // 更新参与者
-  if (db && isFirebaseReady) {
-    db.ref('participants/' + currentUser.id).update({
-      spinCount: currentUser.spinCount,
-      todaySpins: currentUser.todaySpins,
-      lastDrawDate: currentUser.lastDrawDate,
-      name: currentUser.name
-    });
-  } else {
-    participants[currentUser.id] = currentUser;
-    localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
-  }
+    if (db && isFirebaseReady) {
+      db.ref('participants/' + currentUser.id).update({
+        spinCount: currentUser.spinCount,
+        todaySpins: currentUser.todaySpins,
+        lastDrawDate: currentUser.lastDrawDate,
+        name: currentUser.name
+      });
+    } else {
+      participants[currentUser.id] = currentUser;
+      localStorage.setItem(storeKey('diamond_lottery_participants'), JSON.stringify(participants));
+    }
 
-  // 记录中奖
-  const isWin = prize.name !== '谢谢参与' && (Number(prize.weight) || 0) > 0;
-  const record = {
-    id: currentUser.id,
-    name: currentUser.name,
-    prizeName: prize.name,
-    prizeAmount: prize.amount || '',
-    time: new Date().toLocaleString('zh-CN', { hour12: false }),
-    iso: new Date().toISOString(),
-    isWin
+    const now = new Date();
+    const isWin = prize.name !== '谢谢参与';
+    const record = {
+      id: currentUser.id,
+      name: currentUser.name,
+      prizeName: prize.name,
+      prizeAmount: prize.amount || '',
+      time: formatBeijingTime(now),
+      iso: now.toISOString(),
+      winCode: code,
+      isWin
+    };
+
+    if (db && isFirebaseReady) {
+      db.ref('winners').push(record);
+    } else {
+      winners.unshift(record);
+      if (winners.length > 200) winners.length = 200;
+      localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
+    }
+
+    updateSpinButton();
+    renderSidePanel();
+    showResult(prize, code);
+  }).catch(() => {
+    isSpinning = false;
+    const btn = document.getElementById('spinBtn');
+    if (btn) btn.disabled = false;
+    showToast('记录失败，请再试一次');
+  });
+}
+
+function beijingParts(date) {
+  const src = date || new Date();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(src);
+    const g = type => {
+      const found = parts.find(p => p.type === type);
+      return found ? found.value : '';
+    };
+    let hh = g('hour');
+    if (hh === '24') hh = '00';
+    if (g('month') && g('day')) {
+      return { y: g('year'), m: g('month'), d: g('day'), hh: hh, mm: g('minute'), ss: g('second') };
+    }
+  } catch (e) {}
+  const pad = n => String(n).padStart(2, '0');
+  return {
+    y: String(src.getFullYear()),
+    m: pad(src.getMonth() + 1),
+    d: pad(src.getDate()),
+    hh: pad(src.getHours()),
+    mm: pad(src.getMinutes()),
+    ss: pad(src.getSeconds())
   };
+}
 
-  if (db && isFirebaseReady) {
-    // 用 push 保证唯一，再限制长度
-    const winnersRef = db.ref('winners');
-    winnersRef.push(record).then(() => {
-      // 可选：限制最多保留 200 条（简单做法是定期清理，这里先不强制）
+function todayCodePrefix() {
+  const b = beijingParts();
+  return b.m + b.d;
+}
+
+function formatBeijingTime(date) {
+  const b = beijingParts(date);
+  return b.y + '/' + b.m + '/' + b.d + ' ' + b.hh + ':' + b.mm + ':' + b.ss;
+}
+
+function codeSortValue(code) {
+  const m = String(code || '').match(/^(\d{3,4})-(\d+)$/);
+  if (!m) return -1;
+  return Number(m[1]) * 1000000 + Number(m[2]);
+}
+
+function allocateWinCode() {
+  const prefix = todayCodePrefix();
+  const fallback = () => {
+    let max = 0;
+    winners.forEach(w => {
+      const m = String(w.winCode || '').match(new RegExp('^' + prefix + '-(\\d+)$'));
+      if (m) max = Math.max(max, Number(m[1]));
     });
-  } else {
-    winners.unshift(record);
-    if (winners.length > 200) winners.length = 200;
-    localStorage.setItem(storeKey('diamond_lottery_winners'), JSON.stringify(winners));
+    return prefix + '-' + (max + 1);
+  };
+  if (!(db && isFirebaseReady)) {
+    const key = storeKey('diamond_win_seq_' + prefix);
+    const n = Number(localStorage.getItem(key) || 0) + 1;
+    localStorage.setItem(key, String(n));
+    return Promise.resolve(prefix + '-' + n);
   }
+  return new Promise(resolve => {
+    let settled = false;
+    const done = code => { if (!settled) { settled = true; resolve(code); } };
+    try {
+      db.ref('winCounter').transaction(cur => {
+        const seq = (!cur || cur.date !== prefix) ? 1 : ((Number(cur.seq) || 0) + 1);
+        return { date: prefix, seq: seq };
+      }, (err, committed, snap) => {
+        if (err || !committed || !snap) {
+          done(fallback());
+          return;
+        }
+        const v = snap.val() || {};
+        done(v.date && v.seq ? (v.date + '-' + v.seq) : fallback());
+      }, false);
+    } catch (e) {
+      done(fallback());
+    }
+  });
+}
 
-  updateSpinButton();
-  renderSidePanel();
-  showResult(prize);
+function latestWinOf(id) {
+  let best = null;
+  let bestScore = -1;
+  let bestTs = -1;
+  winners.forEach(w => {
+    if (String(w.id) !== String(id)) return;
+    const score = codeSortValue(w.winCode);
+    const ts = parseLooseDate(w.iso || w.time) || 0;
+    if (score > bestScore || (score === bestScore && ts >= bestTs)) {
+      bestScore = score;
+      bestTs = ts;
+      best = w;
+    }
+  });
+  return best;
+}
+
+function formatSpinCell(w) {
+  if (!w) return '-';
+  const time = w.time || '';
+  const code = w.winCode || '';
+  if (time && code) return time + ' / ' + code;
+  return time || code || '-';
+}
+
+function keywordHit(keyword, value) {
+  return String(value || '').toLowerCase().includes(keyword);
 }
 
 function updateSpinButton() {
@@ -2938,12 +3065,14 @@ function collectStarSettings() {
   }
 }
 
-function showResult(prize) {
+function showResult(prize, code) {
   const isThanks = prize.name === '谢谢参与' || !prize.amount;
   document.getElementById('resultTitle').textContent = isThanks ? '谢谢参与' : '🎉 恭喜中奖！';
+  document.getElementById('resultDeptLine').textContent = '宠爱宝贝专属 · ' + currentDept().name;
   document.getElementById('resultPrizeName').textContent = prize.name;
   document.getElementById('resultPrizeDesc').textContent = prize.desc || '';
   document.getElementById('resultPrizeAmount').textContent = prize.amount || '';
+  document.getElementById('resultCode').textContent = code ? ('抽奖编码 ' + code) : '';
 
   const img = document.getElementById('resultImg');
   if (prize.image) {
@@ -3193,11 +3322,12 @@ function renderMemberHome() {
     return;
   }
   const people = Object.values(participants).filter(p =>
-    String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword)
+    keywordHit(keyword, p.id) || keywordHit(keyword, p.name) || winners.some(w => String(w.id) === String(p.id) && keywordHit(keyword, w.winCode))
   );
   const extraIds = {};
   winners.forEach(w => {
-    if ((String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword)) && !people.some(p => p.id === w.id)) {
+    const hit = keywordHit(keyword, w.id) || keywordHit(keyword, w.name) || keywordHit(keyword, w.winCode);
+    if (hit && !people.some(p => p.id === w.id)) {
       extraIds[w.id] = { id: w.id, name: w.name || w.id };
     }
   });
@@ -3218,8 +3348,8 @@ function renderMemberHome() {
     if (typeof getRemaining === 'function' && participants[p.id]) {
       lines.push(`今日抽奖：已用 ${getTodaySpins(p)} / 配额 ${getQuota(p.id)}，剩余 ${getRemaining(p)} 次`);
     }
-    const wins = winners.filter(w => w.id === p.id && withinTwoWeeks(parseLooseDate(w.time)));
-    wins.forEach(w => lines.push(`中奖 ${escapeHtml(w.time || '')}　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
+    const wins = winners.filter(w => String(w.id) === String(p.id) && (withinTwoWeeks(parseLooseDate(w.time)) || keywordHit(keyword, w.winCode)));
+    wins.forEach(w => lines.push(`中奖 ${escapeHtml(w.time || '')}　编码 ${escapeHtml(w.winCode || '-')}　${escapeHtml(w.prizeName || '')} ${escapeHtml(w.prizeAmount || '')}`));
     const signs = checkins.filter(c => c.id === p.id && withinTwoWeeks(parseLooseDate(c.date || c.time)));
     signs.forEach(c => lines.push(`签到 ${escapeHtml(c.date || '')} ${escapeHtml(c.time || '')}　连续 ${c.streak || 1} 天`));
     if (!wins.length && !signs.length) lines.push('近两周没有中奖或签到记录');
@@ -3258,12 +3388,15 @@ function renderParticipantTable() {
   const keyword = ((document.getElementById('partSearch') && document.getElementById('partSearch').value) || '').trim().toLowerCase();
   let list = Object.values(participants);
   if (keyword) {
-    list = list.filter(p => String(p.id || '').toLowerCase().includes(keyword) || String(p.name || '').toLowerCase().includes(keyword));
+    list = list.filter(p => keywordHit(keyword, p.id) || keywordHit(keyword, p.name) || winners.some(w => String(w.id) === String(p.id) && keywordHit(keyword, w.winCode)));
   }
   list.sort((a, b) => {
-    const ra = getRemaining(a) > 0 ? 0 : 1;
-    const rb = getRemaining(b) > 0 ? 0 : 1;
-    if (ra !== rb) return ra - rb;
+    const ca = codeSortValue((latestWinOf(a.id) || {}).winCode);
+    const cb = codeSortValue((latestWinOf(b.id) || {}).winCode);
+    const ha = ca >= 0 ? 0 : 1;
+    const hb = cb >= 0 ? 0 : 1;
+    if (ha !== hb) return ha - hb;
+    if (ca !== cb) return cb - ca;
     const ta = parseLooseDate(a.loginTime || a.joinTime) || 0;
     const tb = parseLooseDate(b.loginTime || b.joinTime) || 0;
     return tb - ta;
@@ -3288,7 +3421,7 @@ function renderParticipantTable() {
       <td>${escapeHtml(p.id)}</td>
       <td>${escapeHtml(p.name)}</td>
       <td>${escapeHtml(p.loginTime || p.joinTime || '')}</td>
-      <td>${escapeHtml(latestSpinTime(p.id))}</td>
+      <td>${escapeHtml(formatSpinCell(latestWinOf(p.id)))}</td>
       <td>${status}</td>
       <td>${bag.total}</td>
       <td>${todayStars}/${getStarTasks().length}</td>
@@ -3337,10 +3470,10 @@ function exportParticipants() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间,今日已抽,配额,剩余,累计星星,今日集星\n';
+  let csv = '宠爱ID,平台账号,登入时间,本次抽奖时间 / 抽奖编码,今日已抽,配额,剩余,累计星星,今日集星\n';
   list.forEach(p => {
     const bag = starBag(p);
-    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${latestSpinTime(p.id)},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
+    csv += `${p.id},${p.name},${p.loginTime || p.joinTime || ''},${formatSpinCell(latestWinOf(p.id))},${getTodaySpins(p)},${getQuota(p.id)},${getRemaining(p)},${bag.total},${Object.keys(bag.today || {}).length}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -3370,7 +3503,13 @@ function previousSpinMap() {
 function renderWinnerTable() {
   const tbody = document.getElementById('winnerTable');
   const keyword = ((document.getElementById('partSearch') && document.getElementById('partSearch').value) || '').trim().toLowerCase();
-  const list = winners.filter(w => !keyword || String(w.id || '').toLowerCase().includes(keyword) || String(w.name || '').toLowerCase().includes(keyword));
+  const list = winners.filter(w => !keyword || keywordHit(keyword, w.id) || keywordHit(keyword, w.name) || keywordHit(keyword, w.winCode));
+  list.sort((a, b) => {
+    const ca = codeSortValue(a.winCode);
+    const cb = codeSortValue(b.winCode);
+    if (ca !== cb) return cb - ca;
+    return (parseLooseDate(b.iso || b.time) || 0) - (parseLooseDate(a.iso || a.time) || 0);
+  });
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-tip">${keyword ? '没有符合的中奖记录' : '暂无记录'}</td></tr>`;
     return;
@@ -3387,7 +3526,7 @@ function renderWinnerTable() {
       <td>${left === '-' ? '-' : left + ' 次'}</td>
       <td>${escapeHtml(w.prizeName)}</td>
       <td>${escapeHtml(w.prizeAmount || '-')}</td>
-      <td>${escapeHtml(w.time || '')}</td>
+      <td>${escapeHtml(formatSpinCell(w))}</td>
       <td>${escapeHtml(prevMap.get(w) || '-')}</td>
     </tr>`;
   }).join('');
@@ -3604,12 +3743,12 @@ function exportWinners() {
     showToast('没有可导出的数据');
     return;
   }
-  let csv = '宠爱ID,平台账号,剩余次数,奖品,金额,本次抽奖时间,上次抽奖时间\n';
+  let csv = '宠爱ID,平台账号,剩余次数,奖品,金额,抽奖编码,本次抽奖时间,上次抽奖时间\n';
   const prevMap = previousSpinMap();
   winners.forEach(w => {
     const user = participants[w.id];
     const left = user ? getRemaining(user) : '';
-    csv += `${w.id},${w.name},${left},${w.prizeName || ''},${w.prizeAmount || ''},${w.time || ''},${prevMap.get(w) || ''}\n`;
+    csv += `${w.id},${w.name},${left},${w.prizeName || ''},${w.prizeAmount || ''},${w.winCode || ''},${w.time || ''},${prevMap.get(w) || ''}\n`;
   });
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
